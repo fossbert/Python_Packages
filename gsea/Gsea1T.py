@@ -22,16 +22,14 @@ class Gsea1T:
     def __init__(self, 
                  ges: pd.Series, 
                  gene_set: list, 
-                 ascending: bool = False, 
                  weight: float = 1):
 
-        self.asc_sort = ascending
         self.weight = weight
 
         if not isinstance(ges, pd.Series):
             raise TypeError('Need an indexed pandas Series, please.')
         else:
-            self.ges = _prep_ges(ges, self.asc_sort)
+            self.ges = _prep_ges(ges, False) # Gsea1T needs to be sorted from high to low for running sum
             self.ns = len(self.ges)
             self.along_scores = [*range(self.ns)]
 
@@ -41,12 +39,12 @@ class Gsea1T:
             self.gs_org = gene_set
             self.gs_final = [g for g in gene_set if g in self.ges.index]
 
-        self.gs_idx = self._find_hits()
+        self.gs_idx = self._find_hits(self.ges, self.gs_final)
 
-        self.rs = self._derive_rs()
+        self.rs = self._derive_rs(self.ges, self.gs_idx, self.weight)
         self.es_idx = np.abs(self.rs).argmax()
 
-        self.gs_reg = genesets2regulon({'GS':self.gs_org})
+        self.gs_reg = genesets2regulon({'GS':self.gs_final})
         self.aREA_nes = aREA(self.ges,
                             self.gs_reg).iloc[0][0]
 
@@ -63,49 +61,57 @@ class Gsea1T:
                    gslength = len(self.gs_org),
                    ngenesinges = len(self.gs_final))
 
-    def _find_hits(self):
+    def _find_hits(self, 
+                   ges: pd.Series,
+                   gene_set: list):
 
-        """Finds the positions of a gene set in a given gene expression signaure list"""
+        """Finds the positions of a gene set in a given gene expression signature list"""
 
-        return {gene: idx for gene, idx in zip(self.ges.index, self.along_scores) if gene in self.gs_final}
+        return [idx for idx, gene in enumerate(ges.index.values) if gene in gene_set]
 
-
-    def _derive_rs(self):
-
+    def _derive_rs(self, 
+                   ges: pd.Series, 
+                   gene_indices: list,
+                   weight: float):
+        
         """Derives the running sum for plotting"""
 
-        idx = list(self.gs_idx.values())
-
-        Nr = np.sum(np.abs((self.ges.values[idx]**self.weight))) # normalization factor
-        Nh = self.ns - len(self.gs_final) # non-hits
-        tmp = np.repeat(-1/Nh, self.ns)
-        tmp[idx] = np.abs(self.ges.values[idx]**self.weight)/Nr
+        Nr = np.sum(np.abs(ges[gene_indices])**weight) # normalization factor
+        Nh = len(ges) - len(gene_indices) # non-hits
+        tmp = np.repeat(-1/Nh, len(ges))
+        tmp[gene_indices] = np.abs(ges[gene_indices])**weight/Nr
         rs = np.cumsum(tmp) # running sum
-
+        
         return rs
 
     def _get_ledge(self):
 
-        if self.aREA_nes > 0:
-            return {gene: idx for gene, idx in self.gs_idx.items() if idx <= self.es_idx}
+        if self.aREA_nes >= 0:
+            # Leading edge indices
+            ledge_idx = [idx for idx in self.gs_idx if idx >= self.es_idx]
         else:
-            return {gene: idx for gene, idx in self.gs_idx.items() if idx >= self.es_idx}
-
-
+            ledge_idx = [idx for idx in self.gs_idx if idx <= self.es_idx]
+        
+        genes = self.ges[ledge_idx].index.values
+        
+        return list(zip(genes, ledge_idx))
+       
     def plot(self,
-             figsize: tuple=(3,3),
+             figsize: tuple=(3, 2.5),
              bar_alpha: float=0.7,
              phenotypes:tuple = ('A', 'B'),
-             colors: tuple = ('.75', '#439D75')
+             colors: tuple = ('.75', '#439D75'),
+             ges_type:str = None
              ):
 
         """This will return a figure object containing 3 axes displaying the gene expression signature,
         the gene set indices and the running sum line"""
 
-        fig = plt.figure(figsize=figsize, tight_layout=True)
+        fig = plt.figure(figsize=figsize, 
+                         tight_layout=True)
 
         gs = gridspec.GridSpec(3, 1, 
-                               height_ratios=[2, 1, 5], 
+                               height_ratios=[2, 1, 7], 
                                hspace=0, 
                                figure=fig)
 
@@ -113,17 +119,24 @@ class Gsea1T:
         ax1 = fig.add_subplot(gs[0])
         ax1.fill_between(self.along_scores, self.ges.values, color=colors[0])
         ax1.set_xticks([])
-        ax1.set_ylabel('Gene score', fontsize='small')
+        if ges_type is None:
+            ges_type = 'Gene score'
+        ax1.set_ylabel(ges_type, fontsize='small')
         ax1.axhline(y=0, linestyle=':', c='.5')
         p1, p2 = phenotypes
         ax1.annotate(p1, xy=(0.05, 0.05), xycoords='axes fraction', ha='left', va='bottom')
         ax1.annotate(p2, xy=(0.95, 0.95), xycoords='axes fraction', ha='right', va='top')
-
+        ax1.yaxis.set_tick_params(labelsize='x-small')
+        ax1.set_yscale('symlog')
+        ax1.yaxis.set_major_locator(ticker.FixedLocator(locs=[np.min(self.ges.values), 0, np.max(self.ges.values)]))
+        ax1.yaxis.set_major_formatter(ticker.StrMethodFormatter("{x:1.0f}"))
+        
         # second graph: bars to indicate positions of individual genes
         ax2 = fig.add_subplot(gs[1])
-        ax2.eventplot(list(self.gs_idx.values()), color=colors[1], alpha=bar_alpha)
+        ax2.eventplot(self.gs_idx, color=colors[1], alpha=bar_alpha)
         ax2.axis('off')
 
+        # Third graph: Running sum
         ax3 = fig.add_subplot(gs[2])
 
         # Set up a legend for NES and p-value
@@ -268,6 +281,7 @@ class Gsea1TMultSig:
         cb.outline.set_visible(False)
         ax1.text(0, 0.5, 'Low', color='w', ha='left', va='center', fontsize='x-small')
         ax1.text(1, 0.5, 'High', color='w', ha='right', va='center', fontsize='x-small')
+        
     
         # Plot 2: Illustrate targets
         ax2 = fig.add_subplot(gs[1,0])
@@ -431,10 +445,10 @@ class Gsea1TMultSets:
         
         gs = fig.add_gridspec(nrows=2, 
                       ncols=2, 
-                      hspace=0, 
+                      hspace=0.025, 
                       wspace=0.05,
                       width_ratios=[10,1],
-                      height_ratios=[1,8])
+                      height_ratios=[1,10])
         
                 # Plot 1: Illustrate the ordered signature as a colorbar
         ax1 = fig.add_subplot(gs[0,0])
@@ -447,7 +461,11 @@ class Gsea1TMultSets:
         p1, p2 = phenotypes
         ax1.annotate(p1, xy=(0.05, 0.95), xycoords='axes fraction', ha='right', va='top')
         ax1.annotate(p2, xy=(0.95, 0.05), xycoords='axes fraction', ha='left', va='bottom')
-
+        ax1.set_yscale('symlog')
+        ax1.yaxis.set_tick_params(labelsize='x-small')
+        ax1.yaxis.set_major_locator(ticker.FixedLocator(locs=[np.min(self.ges.values), 0, np.max(self.ges.values)]))
+        ax1.yaxis.set_major_formatter(ticker.StrMethodFormatter("{x:1.0f}"))
+        
         
         # Plot 2: Illustrate targets
         ax2 = fig.add_subplot(gs[1,0])
@@ -517,47 +535,19 @@ if __name__ == "__main__":
     
     ### Test for Gsea1T
     
+    # #### Random test
     # genes = ['Gene' + str(i) for i in range(ngenes)]
     # np.random.shuffle(genes)
     # ges = pd.Series(np.random.normal(size=ngenes),
     #             index=genes, name='example')
-    
     # gene_set = np.random.choice(ges.index, replace=False, size=50)
     
-    # gsobj = Gsea1T(ges, gene_set)
-    # # print(gsobj)
-    # fig = gsobj.plot()
-    # fig.savefig('Test-Gsea1T.pdf')
+    #### Real test
+    # gsig = pd.read_table('../Analyses/1_CUMC_LCM/ARNTL2/Hypoxia_ARNTL2_RNASeq/Results/KDHypoxia.rnk', 
+    #                     header=None, index_col=0)
     
-     ### Test for Gsea1TMultSig
     
-    data = np.random.normal(size=(ngenes, 20))
-    genes = ['Gene' + str(i) for i in range(ngenes)]
-    samples = ['Sample' + str(i) for i in range(20)]
-    np.random.shuffle(genes)
-    dset = pd.DataFrame(data, 
-                 index=genes,
-                   columns=samples)
-
-    gene_set = np.random.choice(dset.index, replace=False, size=50)
-    
-    gsobj = Gsea1TMultSig(dset, gene_set=gene_set)
-    #print(gsobj.stats['positions'].values)
-    fig = gsobj.plot(figsize=(2.5, 3.5), norm_kws={'vcenter':0, 'vmin':-5, 'vmax':5})
-    fig.savefig('Test-Gsea1TMultSig.pdf')
-           
-    # Test for Gsea1TMultSet
-    # dset = pd.read_table('../Analyses/AG_Reichert/Data/TUMOrganoidsCore_RNASeq/TUMOrganoidsCore_RawCounts_EsetCollapsedTR27571x27.tsv', index_col=0)
-    # dset = (dset - dset.values.mean(1, keepdims=True)) / dset.values.std(1, keepdims=True)
-    
-    # ges = dset.loc[:,'B113.NA'].copy()
-        
-    # gene_sets = {}
-    # for i in range(10):
-    #     genes = np.random.choice(ges.index, replace=False, 
-    #                              size=np.random.randint(50, 101, size=1))
-    #     gene_sets['Set' + str(i)] = genes
-    
+    # ges = pd.Series(data=gsig.values.ravel(), index=gsig.index, name='hypoxia')
     # gene_sets = {}
 
     # with open('../Data/HALLMARK_related/h.all.v7.4.symbols.gmt') as f:
@@ -565,11 +555,55 @@ if __name__ == "__main__":
     #         tmp = line.rstrip('\n').split('\t')
     #         pw = tmp.pop(0)
     #         gene_sets[pw] = tmp[1:]
+    
+    # print(ges)
+    # print(gene_sets['HALLMARK_KRAS_SIGNALING_UP'])
+    # gsobj = Gsea1T(ges, gene_sets['HALLMARK_KRAS_SIGNALING_UP'])
+    # print(gsobj.gs_idx)
+    # fig = gsobj.plot(figsize=(3,3), ges_type='Wald stat')
+    # fig.savefig('Test-Gsea1T.pdf')
+    
+     ### Test for Gsea1TMultSig
+    
+    # data = np.random.normal(size=(ngenes, 20))
+    # genes = ['Gene' + str(i) for i in range(ngenes)]
+    # samples = ['Sample' + str(i) for i in range(20)]
+    # np.random.shuffle(genes)
+    # dset = pd.DataFrame(data, 
+    #              index=genes,
+    #                columns=samples)
+
+    # gene_set = np.random.choice(dset.index, replace=False, size=50)
+    
+    # gsobj = Gsea1TMultSig(dset, gene_set=gene_set)
+    # #print(gsobj.stats['positions'].values)
+    # fig = gsobj.plot(figsize=(2.5, 3.5), norm_kws={'vcenter':0, 'vmin':-5, 'vmax':5})
+    # fig.savefig('Test-Gsea1TMultSig.pdf')
+           
+    # Test for Gsea1TMultSet
+    dset = pd.read_table('../Analyses/AG_Reichert/Data/TUMOrganoidsCore_RNASeq/TUMOrganoidsCore_RawCounts_EsetCollapsedTR27571x27.tsv', index_col=0)
+    dset = (dset - dset.values.mean(1, keepdims=True)) / dset.values.std(1, keepdims=True)
+    
+    ges = dset.loc[:,'B113.NA'].copy()
+        
+    gene_sets = {}
+    for i in range(10):
+        genes = np.random.choice(ges.index, replace=False, 
+                                 size=np.random.randint(50, 101, size=1))
+        gene_sets['Set' + str(i)] = genes
+    
+    gene_sets = {}
+
+    with open('../Data/HALLMARK_related/h.all.v7.4.symbols.gmt') as f:
+        for line in f:
+            tmp = line.rstrip('\n').split('\t')
+            pw = tmp.pop(0)
+            gene_sets[pw] = tmp[1:]
          
-    # gsobj = Gsea1TMultSets(ges, gene_sets, minsize=75)
+    gsobj = Gsea1TMultSets(ges, gene_sets, minsize=75)
     
-    # # print(gsobj.stats)
+    # print(gsobj.stats)
     
-    # fig = gsobj.plot(figsize=(3, 6))
-    # fig.savefig('Test-Gsea1TMultSet.pdf')
+    fig = gsobj.plot(figsize=(3, 6))
+    fig.savefig('Test-Gsea1TMultSet.pdf')
     
