@@ -7,7 +7,7 @@ from matplotlib import gridspec
 from matplotlib.cm import coolwarm, ScalarMappable
 import matplotlib.colors as mcolors
 from matplotlib import ticker
-from aREA import aREA, genesets2regulon
+from .aREA import aREA, genesets2regulon
 from scipy.stats import norm
 from statsmodels.stats.multitest import multipletests
 
@@ -49,8 +49,7 @@ class Gsea1T:
                             self.gs_reg).iloc[0][0]
 
         self.pval = norm.sf(np.abs(self.aREA_nes))*2
-        self.ledge = self._get_ledge()
-
+        self.ledge, self.ledge_xlims = self._get_ledge(self.ges, self.gs_idx, self.es_idx)
 
     def __repr__(self):
 
@@ -84,20 +83,28 @@ class Gsea1T:
         
         return rs
 
-    def _get_ledge(self):
+    def _get_ledge(self, 
+                   ges: pd.Series,
+                   gene_indices: list,
+                   es_index: int):
 
         if self.aREA_nes >= 0:
             # Leading edge indices
-            ledge_idx = [idx for idx in self.gs_idx if idx >= self.es_idx]
+            ledge_idx = [idx for idx in gene_indices if idx <= es_index]
+            ledge_xlims = (np.min(ledge_idx), es_index)
         else:
-            ledge_idx = [idx for idx in self.gs_idx if idx <= self.es_idx]
+            ledge_idx = [idx for idx in gene_indices if idx >= es_index]
+            ledge_xlims = (es_index, np.max(ledge_idx))
+            
+        ledge_genes = ges.index[ledge_idx].values
         
-        genes = self.ges[ledge_idx].index.values
+        df = pd.DataFrame(zip(ledge_genes, ledge_idx), columns=['gene', 'position'])
         
-        return list(zip(genes, ledge_idx))
+        return df, ledge_xlims
+
        
     def plot(self,
-             figsize: tuple=(3, 2.5),
+             figsize: tuple=(2.5, 2.5),
              bar_alpha: float=0.7,
              phenotypes:tuple = ('A', 'B'),
              colors: tuple = ('.75', '#439D75'),
@@ -155,7 +162,16 @@ class Gsea1T:
 
         return fig
 
+        # def plot_ledge(self,
+        #      figsize: tuple=(3.5, 3),
+        #      bar_alpha: float=0.7,
+        #      colors: tuple = ('.75', '#439D75'),
+        #      ges_type:str = None
+        #      ):
 
+
+
+            
 class Gsea1TMultSig:
      
     def __init__(self, 
