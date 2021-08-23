@@ -1,14 +1,23 @@
+from typing import Union, Tuple
 import numpy as np
 import pandas as pd
-from scipy.stats import norm
+from scipy.stats.norm import ppf
 
 
-def aREA(dset, regulon, minsize=20):
-
-    """This function takes an expression matrix or signature, respectively, and
+def aREA(dset: Union[pd.DataFrame, pd.Series], 
+         regulon: dict, 
+         minsize: int = 20)->Union[pd.Series, pd.DataFrame]:
+    
+    """[summary]
+    
+    This function takes an expression matrix or signature, respectively, and
     computes analytic rank-based enrichment analysis as described in Alvarez et al., Nat
-    Genetics, 2016"""
-
+    Genetics, 2016
+    
+    Returns:
+        [pd.Series|pd.DataFrame]: [A pandas Series or DataFrame of Normalized Enrichment Scores]
+    """
+    
     # transform dset to rank matrices
     t1, t2 = get_tmats(dset)
 
@@ -26,9 +35,18 @@ def aREA(dset, regulon, minsize=20):
     return nes
 
 
-def calc_nes(s3, lik):
-    """This function normalized the Three-tailed
-    enrichment score using the weights from the interaction confidence"""
+def calc_nes(s3:pd.DataFrame, 
+             lik:pd.DataFrame)->pd.DataFrame:
+    """[summary]
+        This function normalizes the three-tailed enrichment score using the weights from the interaction confidence
+    Args:
+        s3 (pd.DataFrame): [Numeric DataFrame of three-tailed enrichment scores]
+        lik (pd.DataFrame): [Numeric DataFrame of "likelihoods", i.e. weights on interaction confidence between
+        a pathway/regulator and a pathway member gene/transcriptional target]
+
+    Returns:
+        pd.DataFrame: [A DataFrame of Normalized Enrichment Scores]
+    """    """"""
 
     # likelihood weights
     lwt = np.sqrt(np.sum(lik.values**2,axis=0))[:,np.newaxis]
@@ -38,13 +56,22 @@ def calc_nes(s3, lik):
     return nes
 
 
+def calc_3TES(s1:pd.DataFrame, 
+              s2:pd.DataFrame)->pd.DataFrame:
 
-def calc_3TES(s1, s2):
+    """[summary]
+        This function calculates the three-tailed enrichment score from two ES DataFrames.
+        It will expect the two-tail ES as s1 and one-tail ES as s2.
+        
+    Args:
+        s1 (pd.DataFrame): [Numeric DataFrame of two-tailed enrichment scores]
+        s2 (pd.DataFrame): [Numeric DataFrame of one-tailed enrichment scores]
+        
+    Returns:
+        [pd.DataFrame]: [Numeric DataFrame containing three-tailed enrichment scores]
+    """
 
-    """This function calculates the Three-Tailed enrichment score from two ES DFs.
-    It will expect the Two-Tail ES as s1 and One-Tail ES as s2"""
-
-    # Extract the signs of the Two-tail enrichment scores
+    # Extract the signs of the two-tail enrichment scores
     s1_signs = s1.copy()
     s1_signs[s1_signs>=0] = 1
     s1_signs[s1_signs<0] = -1
@@ -55,12 +82,23 @@ def calc_3TES(s1, s2):
 
 
 
-def calc_1TES(t1, mor, lik_scaled):
+def calc_1TES(t1:pd.DataFrame, 
+              mor:pd.DataFrame, 
+              lik_scaled:pd.DataFrame)->pd.DataFrame:
 
-    """This function calculates the one-tail enrichment score DataFrame"""
-    # Weight matrix irrespective of direction
+    """[This function calculates the one-tail enrichment score DataFrame]
+
+    Args:
+        t1 (pd.DataFrame): [Numeric DataFrame containing T1 ranked data, i.e. scaled expression values which are highest 
+        when the input approaches the negative and positive extremes, respectively.]
+        mor (pd.DataFrame): [Numeric DataFrame containing the Mode of Regulation information between regulators and their targets]
+        lik_scaled (pd.DataFrame): [Numeric DataFrame containing scaled weights, i.e. likelihoods bwetween each regulator and target.]
+        
+    Returns:
+        [DataFrame]: [A numeric DataFrame containing one-tailed enrichment score results]
+    """
+    # Weight DataFrame irrespective of direction
     wm1 = (1 - mor.abs()) * lik_scaled
-
     # Align matrices
     pos = t1.index.intersection(wm1.index)
     t1 = t1.loc[pos]
@@ -71,10 +109,21 @@ def calc_1TES(t1, mor, lik_scaled):
     return s2
 
 
-def calc_2TES(t2, mor, lik_scaled):
+def calc_2TES(t2:pd.DataFrame, 
+              mor: pd.DataFrame, 
+              lik_scaled: pd.DataFrame)->pd.DataFrame:
 
-    """This function calculates the two-tail enrichment scores"""
+    
+    """[This function calculates the two-tail enrichment score DataFrame]
 
+    Args:
+        t2 (pd.DataFrame): [Numeric DataFrame containing T2 ranked data, i.e. scaled expression values from 0 (low) to 1 (high)]
+        mor (pd.DataFrame): [Numeric DataFrame containing the Mode of Regulation information between regulators and their targets]
+        lik_scaled (pd.DataFrame): [Numeric DataFrame containing scaled weights, i.e. likelihoods bwetween each regulator and target.]
+        
+    Returns:
+        [DataFrame]: [A numeric DataFrame containing two-tailed enrichment score results]
+    """
     # Create two-tailed weighted MoR DF
     wm2 = mor * lik_scaled
 
@@ -89,10 +138,18 @@ def calc_2TES(t2, mor, lik_scaled):
 
 
 
-def get_mor_lik(regulon: dict, minsize: int = 20):
+def get_mor_lik(regulon: dict, 
+                minsize: int = 20)-> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
 
-    """This function extracts numeric weight DataFrames from a regulon dictionary for further matrix multiplication steps"""
-
+    """[Creates the Mode of Regulation and Scaled weights matrices using data contained in the network inferred by ARACNe]
+    
+    Args:
+        regulon (dict): [A regulon, i.e. dictionary containing DataFrames for each regulator or pathway which holds
+        the information on targets, mode of regulation and likelihoods.]
+    Returns:
+        [Tuple]: [Tuple containing three DataFrames: Mode of Regulation, Likelihood and scaled Likelihood]
+    """
+      
     mors = []
     liks = []
 
@@ -121,10 +178,16 @@ def get_mor_lik(regulon: dict, minsize: int = 20):
 
     return mor_df, lik_df, lik_scaled
 
-def get_tmats(dset):
 
-    """Transforms an expression matrix or gene expression signature"""
+def get_tmats(dset: Union[pd.DataFrame, pd.Series])-> Tuple[pd.DataFrame, pd.DataFrame]:
 
+    """[From a single gene expression Series or gene expression DataFrame, this function calculates
+    T1 and T2 numeric DataFrames, i.e. the scaled expression rank of every gene within the sample. The ranked values are 
+    transformed to quantiles from the normal distribution.]
+
+    Returns:
+        [Tuple]: [Tuple containing two DataFrames: T1 and T2 ranks]
+    """
     assert isinstance(dset, pd.Series) or isinstance(dset, pd.DataFrame), 'Wrong data input'
 
     # rank computation
@@ -134,53 +197,21 @@ def get_tmats(dset):
 
     # transform to quantiles of a normal distribution
     if isinstance(dset, pd.Series):
-        t2q = pd.DataFrame(norm.ppf(t2.values),
+        t2q = pd.DataFrame(ppf(t2.values),
                   index=t2.index,
                   columns=[t2.name])
 
-        t1q = pd.DataFrame(norm.ppf(t1.values),
+        t1q = pd.DataFrame(ppf(t1.values),
                   index=t1.index,
                   columns=[t1.name])
 
     elif isinstance(dset, pd.DataFrame):
-        t2q = pd.DataFrame(norm.ppf(t2.values),
+        t2q = pd.DataFrame(ppf(t2.values),
                   index=t2.index,
                   columns=t2.columns)
 
-        t1q = pd.DataFrame(norm.ppf(t1.values),
+        t1q = pd.DataFrame(ppf(t1.values),
                   index=t1.index,
                   columns=t1.columns)
 
     return t1q, t2q
-
-
-
-
-def genesets2regulon(genesets: dict, 
-                     minsize: int = 20, 
-                     maxsize: int = None):
-
-    """This function generates a regulon dictionary suitable for aREA from a 'regulary' dictionary
-    of pathway names as keys and a list of the related gene symbols as values."""
-
-    assert isinstance(genesets, dict), 'A dictionary is needed here!'
-    assert isinstance(minsize, int), 'minsize needs to be an integer value!'
-
-    reg = {}
-
-    for key, val in genesets.items():
-        ns = len(val)
-        if maxsize != None:
-            assert isinstance(maxsize, int), 'maxsize needs to be an integer value!'
-            if (ns >= minsize) & (ns <= maxsize):
-                mor = np.ones(ns)
-                reg[key] = pd.DataFrame(data=zip(val, mor, mor/ns),
-                                        columns=['target', 'mor', 'likelihood'])
-
-        else:
-            if ns >= minsize:
-                mor = np.ones(ns)
-                reg[key] = pd.DataFrame(data=zip(val, mor, mor/ns),
-                                    columns=['target', 'mor', 'likelihood'])
-
-    return reg
