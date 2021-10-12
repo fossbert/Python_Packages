@@ -49,7 +49,7 @@ class Gsea1T:
         self.rs = self._derive_rs(self.ges, self.gs_idx, self.weight)
         self.es_idx = np.abs(self.rs).argmax()
 
-        self.gs_reg = genesets2regulon({'GS':self.gs_final})
+        self.gs_reg = genesets2regulon({'GS':self.gs_final}, minsize=len(self.gs_final))
         self.aREA_nes = aREA(self.ges,
                             self.gs_reg, 
                             minsize=len(self.gs_final)).iloc[0][0]
@@ -143,6 +143,8 @@ class Gsea1T:
     def plot(self,
              figsize: tuple=(3, 3),
              conditions: tuple = ('A', 'B'),
+             ges_symlog: bool = True,
+             ges_stat_fmt: str = '1.0f',
              ges_type: str = None,
              ges_kw: dict = None,
              evt_kw: dict = None,
@@ -184,7 +186,10 @@ class Gsea1T:
                      self.ges.values, 
                      conditions=conditions,
                      is_high_to_low=True,
-                     ges_type=ges_type, ax=ax1, 
+                     ges_type=ges_type, 
+                     symlog=ges_symlog,
+                     stat_fmt=ges_stat_fmt,
+                     ax=ax1, 
                      **ges_prop)
         
         # second graph: bars to indicate positions of individual genes
@@ -284,7 +289,7 @@ class Gsea1TMultSigs:
         
         self.gs_idx = self._find_hits(self.dset, self.gs_final)
         
-        self.gs_reg = genesets2regulon({'GS':self.gs_org})
+        self.gs_reg = genesets2regulon({'GS':self.gs_org}, minsize=len(self.gs_final))
         
         self.stats = self._get_stats(dset=self.dset, 
                                      regulon=self.gs_reg, 
@@ -605,6 +610,8 @@ class Gsea1TMultSets:
              figsize: tuple = (3, 3),
              conditions: tuple = ('A', 'B'),
              strip_gs_names: bool = True,
+             ges_symlog: bool= True,
+             ges_stat_fmt: str = '1.0f',
              subset: dict = None,
              ges_type:str = None,
              ges_kw: dict = None,
@@ -684,7 +691,7 @@ class Gsea1TMultSets:
         if ges_kw is not None:
             ges_prop.update(ges_kw)
         pl._plot_ges(self.along_scores, self.ges.values, ges_type=ges_type, conditions=conditions, 
-                     is_high_to_low=False, ax=ax1, **ges_prop)
+                     is_high_to_low=False, symlog=ges_symlog, stat_fmt=ges_stat_fmt, ax=ax1, **ges_prop)
         
         # Plot 2: Illustrate targets
         ax2 = fig.add_subplot(gs[1,0])

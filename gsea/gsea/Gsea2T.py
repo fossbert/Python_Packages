@@ -93,6 +93,8 @@ class Gsea2T(Gsea1T):
              figsize: tuple=(3, 3),
              conditions: tuple = ('A', 'B'),
              ges_type: str = None,
+             ges_symlog: bool=True,
+             ges_stat_fmt:str='1.0f',
              ges_kw: dict = None,
              evt_kw_1: dict = None,
              rs_kw_1: dict = None,
@@ -124,9 +126,12 @@ class Gsea2T(Gsea1T):
             ges_prop.update(ges_kw)
         pl._plot_ges(self.along_scores, 
                      self.ges.values, 
+                     ges_type=ges_type,
                      conditions=conditions,
                      is_high_to_low=True,
-                     ges_type=ges_type, ax=ax1, 
+                     symlog=ges_symlog,
+                     stat_fmt=ges_stat_fmt,
+                     ax=ax1, 
                      **ges_prop)
         
         # second graph: bars to indicate positions of FIRST GENE SET genes
@@ -333,6 +338,8 @@ class GseaReg(Gsea1T):
              figsize: tuple=(3, 3),
              conditions: tuple = ('A', 'B'),
              ges_type: str = None,
+             ges_symlog: bool=True,
+             ges_stat_fmt:str='1.0f',
              ges_kw: dict = None,
              evt_kw_1: dict = None,
              rs_kw_1: dict = None,
@@ -373,7 +380,10 @@ class GseaReg(Gsea1T):
                      self.ges.values, 
                      conditions=conditions,
                      is_high_to_low=True,
-                     ges_type=ges_type, ax=ax1, 
+                     ges_type=ges_type, 
+                     symlog=ges_symlog,
+                     stat_fmt=ges_stat_fmt,
+                     ax=ax1, 
                      **ges_prop)
         
         # second graph: bars to indicate positions of FIRST GENE SET genes
@@ -779,6 +789,8 @@ class GseaMultReg:
              figsize: tuple = (3, 3),
              conditions: tuple = ('A', 'B'),
              regulon_colors: tuple=('#AC3220', '#50808E'),
+             ges_symlog: bool=True,
+             ges_stat_fmt:str='1:0f',
              subset: dict = None,
              ges_type:str = None,
              ges_kw: dict = None,
@@ -861,8 +873,13 @@ class GseaMultReg:
         ax1 = fig.add_subplot(gs[0,0])
         if ges_kw is not None:
             ges_prop.update(ges_kw)
-        pl._plot_ges(self.along_scores, self.ges.values, ges_type=ges_type, conditions=conditions, 
-                     is_high_to_low=False, ax=ax1, **ges_prop)
+        pl._plot_ges(self.along_scores, self.ges.values, 
+                     ges_type=ges_type, 
+                     conditions=conditions, 
+                     is_high_to_low=False, 
+                     symlog=ges_symlog,
+                     stat_fmt=ges_stat_fmt,
+                     ax=ax1, **ges_prop)
         
         # Plot 2: Illustrate targets
         ax2 = fig.add_subplot(gs[1,0])

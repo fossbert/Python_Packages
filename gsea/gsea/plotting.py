@@ -13,7 +13,9 @@ def _plot_ges(along_scores: list,
               ges_values:np.ndarray, 
               ges_type: str, 
               conditions: tuple, 
-              is_high_to_low: True,
+              symlog:bool,
+              stat_fmt:str,
+              is_high_to_low: bool = True,
               ax = None,
               **kwargs):
     if ax is None:
@@ -25,6 +27,7 @@ def _plot_ges(along_scores: list,
         ges_type = 'Gene score'
     ax.set_ylabel(ges_type, fontsize='xx-small')
     ax.axhline(y=0, linestyle='-', lw=0.5, c='.15')
+    ax.set_xlim([-.5, len(ges_values)+.5])
     p1, p2 = conditions
     if is_high_to_low:
         ax.annotate(p1, xy=(0.05, 0.05), xycoords='axes fraction', ha='left', va='bottom', fontsize='small')
@@ -33,9 +36,11 @@ def _plot_ges(along_scores: list,
         ax.annotate(p1, xy=(0.05, 0.95), xycoords='axes fraction', ha='left', va='top', fontsize='small')
         ax.annotate(p2, xy=(0.95, 0.05), xycoords='axes fraction', ha='right', va='bottom', fontsize='small')
     ax.yaxis.set_tick_params(labelsize='xx-small')
-    ax.set_yscale('symlog')
-    ax.yaxis.set_major_locator(ticker.FixedLocator(locs=[np.min(ges_values), 0, np.max(ges_values)]))
-    ax.yaxis.set_major_formatter(ticker.StrMethodFormatter("{x:1.0f}"))
+    if symlog:
+        ax.set_yscale('symlog')
+    yticks = [np.min(ges_values), 0, np.max(ges_values)]
+    ax.set_yticks(yticks)
+    ax.set_yticklabels(list(map(lambda x: f'{x:{stat_fmt}}', yticks)))
     
     return ax
 

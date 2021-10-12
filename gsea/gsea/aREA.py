@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+from pandas.core.indexing import is_nested_tuple
 from scipy.stats import norm
 from typing import Union, Tuple
 
@@ -148,7 +149,7 @@ def calc_2TES(t2:pd.DataFrame,
 
 
 def get_mor_lik(regulon: dict, 
-                minsize: int = 20)-> Tuple[pd.DataFrame, pd.DataFrame]:
+                minsize: int)-> Tuple[pd.DataFrame, pd.DataFrame]:
 
     """Creates the Mode of Regulation and Scaled weights matrices using data contained in the network inferred by ARACNe
 
@@ -181,11 +182,11 @@ def get_mor_lik(regulon: dict,
 
     # join using outer join to keep all targets
     mor_df = pd.concat(mors, axis=1)
-    mor_df[mor_df.isnull()] = 0
-
+    mor_df.fillna(0, inplace=True)
+    
     lik_df = pd.concat(liks, axis=1)
-    lik_df[lik_df.isnull()] = 0
-
+    lik_df.fillna(0, inplace=True)
+    
     # Scale likelihood DF for column sums
     lik_scaled = lik_df / np.sum(lik_df.values, axis=0, keepdims=True)
 
