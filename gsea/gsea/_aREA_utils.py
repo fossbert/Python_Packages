@@ -4,9 +4,8 @@ from typing import Union
 
 """Helper functions used throughout the package"""
 
-def genesets2regulon(genesets: dict, 
-                     minsize: int = 20, 
-                     maxsize: int = None)-> dict:
+def gene_sets_to_regulon(genesets: dict, 
+                         minsize: int = 20)-> pd.DataFrame:
 
     """This function generates a regulon dictionary suitable for aREA from a 'regulary' dictionary
     of pathway names as keys and a list of the related gene symbols as values.
@@ -21,29 +20,28 @@ def genesets2regulon(genesets: dict,
 
     """
 
-    assert isinstance(genesets, dict), 'A dictionary is needed here!'
-    assert isinstance(minsize, int), 'minsize needs to be an integer value!'
-
     reg = {}
 
     for key, val in genesets.items():
       # duplicate values will mess things up ! 
-        val = set(val)
+        set_in = set(val)
         ns = len(val)
-        if maxsize != None:
-            assert isinstance(maxsize, int), 'maxsize needs to be an integer value!'
-            if (ns >= minsize) & (ns <= maxsize):
-                mor = np.ones(ns)
-                reg[key] = pd.DataFrame(data=zip(val, mor, mor/ns),
-                                        columns=['target', 'mor', 'likelihood'])
-
-        else:
-            if ns >= minsize:
-                mor = np.ones(ns)
-                reg[key] = pd.DataFrame(data=zip(val, mor, mor/ns),
-                                    columns=['target', 'mor', 'likelihood'])
-
-    return reg
+        
+        if ns>= minsize:
+          reg[key] = _gene_set_to_df(set_in, ns)
+     
+    df = pd.concat(reg)
+    df.index.set_names('source', level=0, inplace=True)
+    df.reset_index(level=0, inplace=True)
+    
+    return df
+  
+def _gene_set_to_df(gene_set: set, ns: int):
+  
+  mor = np.ones(ns)
+    
+  return pd.DataFrame(data=zip(gene_set, mor, mor/ns),
+                      columns=['target', 'mor', 'likelihood'])
 
 
 
@@ -84,11 +82,3 @@ def _prep_ges(ges: Union[pd.Series,pd.DataFrame],
                  
     return ges
     
-    
-    
-
-    
-
-   
-
-    return ges

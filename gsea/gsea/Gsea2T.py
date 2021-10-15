@@ -13,7 +13,7 @@ from pandas.core.frame import DataFrame
 
 # gene set enrichment and helpers
 from .aREA import aREA
-from ._aREA_utils import genesets2regulon, _prep_ges
+from ._aREA_utils import gene_sets_to_regulon, _prep_ges
 from . import plotting as pl
 from .Gsea1T import Gsea1T, Gsea1TMultSigs, Gsea1TMultSets
 from scipy.stats import norm
@@ -59,25 +59,23 @@ class Gsea2T(Gsea1T):
         self.rs_2 = self._derive_rs(self.ges, self.gs_idx_2, self.weight)
         self.es_idx_2 = np.abs(self.rs_2).argmax()
 
-        self.gs_reg_1 = genesets2regulon({'GS1':self.gs_final_1})
+        self.gs_reg_1 = gene_sets_to_regulon({'GS1':self.gs_final_1}, minsize=len(self.gs_final_1))
         self.aREA_nes_1 = aREA(self.ges,
                             self.gs_reg_1).iloc[0][0]
         
-        self.gs_reg_2 = genesets2regulon({'GS2':self.gs_final_2})
+        self.gs_reg_2 = gene_sets_to_regulon({'GS2':self.gs_final_2}, minsize=len(self.gs_final_2))
         self.aREA_nes_2 = aREA(self.ges,
                             self.gs_reg_2).iloc[0][0]
 
         self.pval_1 = norm.sf(np.abs(self.aREA_nes_1))*2
         self.ledge_1, self.ledge_xinfo_1 = self._get_ledge(self.ges, 
                                                            self.gs_idx_1, 
-                                                           self.es_idx_1, 
-                                                           self.aREA_nes_1)
+                                                           self.es_idx_1)
         
         self.pval_2 = norm.sf(np.abs(self.aREA_nes_2))*2
         self.ledge_2, self.ledge_xinfo_2 = self._get_ledge(self.ges, 
                                                            self.gs_idx_2, 
-                                                           self.es_idx_2, 
-                                                           self.aREA_nes_2)
+                                                           self.es_idx_2)
         
     def __repr__(self):
         
@@ -105,7 +103,7 @@ class Gsea2T(Gsea1T):
              ):
         
         # Some defaults
-        ges_prop = {'color':'.5', 'alpha':0.25}
+        ges_prop = {'color':'.5', 'alpha':0.25, 'linewidth':0.1}
         evt_prop_1 = {'color': '#AC3220', 'alpha':0.7, 'linewidths':0.5} # Chinese Red
         evt_prop_2 = {'color': '#50808E', 'alpha':0.7, 'linewidths':0.5} # Teal Blue
         rs_prop_1 = {k:v for k, v in evt_prop_1.items() if k=='color'}
@@ -198,20 +196,20 @@ class Gsea2T(Gsea1T):
         genes_2 = self.ledge_2['gene'].values
               
         # DEFAULTS, Patch will always follow running sum color
-        rs_prop_1 = {'color':'#AC3220'} ; patch_prop_1 =  {'color':'#AC3220'}# Chinese red
+        rs_prop_1 = {'color':'#AC3220'} ; patch_prop_1 =  rs_prop_1.copy() # Chinese red
         if rs_kw_1 is not None:
             rs_prop_1.update(rs_kw_1)
         if patch_kw_1 is not None:
             patch_prop_1.update(patch_kw_1)
             
-        rs_prop_2 = {'color':'#50808E'} ; patch_prop_2 = {'color':'#50808E'} # Teal Blue 
+        rs_prop_2 = {'color':'#50808E'} ; patch_prop_2 = rs_prop_2.copy() # Teal Blue 
         if rs_kw_2 is not None:
             rs_prop_2.update(rs_kw_2)
         if patch_kw_2 is not None:
             patch_prop_2.update(patch_kw_2)
     
         lbl_prop_1 = {'fontsize':4, 'rotation':90, 'ha':'center', 'va':'center'}
-        lbl_prop_2 = {'fontsize':4, 'rotation':90, 'ha':'center', 'va':'center'}
+        lbl_prop_2 = lbl_prop_1.copy()
         if lbl_kw_1 is not None:
             lbl_prop_1.update(lbl_kw_1)
         if lbl_kw_2 is not None:
@@ -257,7 +255,7 @@ class GseaReg(Gsea1T):
 
     def __init__(self, 
                  ges: pd.Series, 
-                 regulon: dict):
+                 regulon: pd.DataFrame):
 
         if not isinstance(ges, pd.Series):
             raise TypeError('Need an indexed pandas Series, please.')
@@ -266,23 +264,20 @@ class GseaReg(Gsea1T):
             self.ns = len(self.ges)
             self.along_scores = [*range(self.ns)]
             
-        if not isinstance(regulon, dict):
-            raise TypeError('Regulon needs to be supplied as a dictionary, please.')
+            
+        if not isinstance(regulon, pd.DataFrame):
+            raise TypeError('Regulon needs to be supplied as a DataFrame, please.')
         else:
-            self.regulator = list(regulon.keys())[0]
-        
-        if not isinstance(list(regulon.values())[0], pd.DataFrame):
-            raise TypeError('Regulon values need to be supplied in a pandas DataFrame, please.')
-        else:
-            self.reg_df_in = list(regulon.values())[0]
-        
-        assert all(self.reg_df_in.columns.values == np.array(['target', 'mor', 'likelihood'])), \
-            'Regulon value DataFrame must have columns: target, mor, likelihood'
-
-        if not np.in1d(self.reg_df_in['target'].values, ges.index).any():
+            self.regulator = ''.join(set(regulon['source']))
+            self.regulon_in = regulon
+            
+        # if not all(self.regulon_in.columns.values == ['source',' target', 'mor', 'likelihood']):
+        #     raise ValueError('Regulon value DataFrame must have columns: source, target, mor, likelihood')
+    
+        if not np.in1d(self.regulon_in['target'].values, self.ges.index).any():
             raise ValueError("None of the regulator targets were found in the gene expression signature index!")
         else:
-            self.reg_df, self.reg_pos, self.reg_neg = self._split_regulon(self.reg_df_in, self.ges.index)
+            self.reg_df, self.reg_pos, self.reg_neg = self._split_regulon(self.regulon_in, self.ges.index)
 
         # Gene set 1 are the positive targets
         self.gs_idx_1 = self._find_hits(self.ges, self.reg_pos['target'].to_list())
@@ -294,18 +289,16 @@ class GseaReg(Gsea1T):
         self.rs_2 = self._derive_rs(self.ges, self.gs_idx_2, 1)
         self.es_idx_2 = np.abs(self.rs_2).argmax()
 
-        self.aREA_nes = aREA(self.ges, {self.regulator:self.reg_df}).iloc[0][0]
+        self.aREA_nes = aREA(self.ges, self.regulon_in, minsize=len(self.reg_df)).iloc[0][0]
         self.pval = norm.sf(np.abs(self.aREA_nes))*2
         
         self.ledge_1, self.ledge_xinfo_1 = self._get_ledge(self.ges, 
                                                            self.gs_idx_1, 
-                                                           self.es_idx_1, 
-                                                           self.rs_1[self.es_idx_1])
+                                                           self.es_idx_1)
         
         self.ledge_2, self.ledge_xinfo_2 = self._get_ledge(self.ges, 
                                                            self.gs_idx_2, 
-                                                           self.es_idx_2, 
-                                                           self.rs_2[self.es_idx_2])
+                                                           self.es_idx_2)
         
     def __repr__(self):
         
@@ -314,7 +307,7 @@ class GseaReg(Gsea1T):
         return (
             f"GseaReg(GES length: {self.ns}\n"
             f"Regulator: {self.regulator}\n"
-            f"Number of targets in GES: {len(self.reg_df_in)}, Overlap: {len(self.reg_df)}\n"
+            f"Number of targets: {len(self.regulon_in)}, Overlap with GES: {len(self.reg_df)}\n"
             f"Positive targets: {len(self.reg_pos)}, Negative targets: {len(self.reg_neg)}\n"
         )
     
@@ -350,7 +343,7 @@ class GseaReg(Gsea1T):
              ):
         
         # Some defaults
-        ges_prop = {'color':'.5', 'alpha':0.25}
+        ges_prop = {'color':'.5', 'alpha':0.25, 'linewidth':0.1}
         evt_prop_1 = {'color': '#AC3220', 'alpha':0.7, 'linewidths':0.5} # Chinese Red
         if evt_kw_1 is not None:
             evt_prop_1.update(evt_kw_1)        
@@ -442,20 +435,20 @@ class GseaReg(Gsea1T):
         genes_2 = self.ledge_2['gene'].values
               
         # DEFAULTS, Patch will always follow running sum color
-        rs_prop_1 = {'color':'#AC3220'} ; patch_prop_1 =  {'color':'#AC3220'}# Chinese red
+        rs_prop_1 = {'color':'#AC3220'} ; patch_prop_1 =  rs_prop_1.copy() # Chinese red
         if rs_kw_1 is not None:
             rs_prop_1.update(rs_kw_1)
         if patch_kw_1 is not None:
             patch_prop_1.update(patch_kw_1)
             
-        rs_prop_2 = {'color':'#50808E'} ; patch_prop_2 = {'color':'#50808E'} # Teal Blue 
+        rs_prop_2 = {'color':'#50808E'} ; patch_prop_2 = rs_prop_2.copy() # Teal Blue 
         if rs_kw_2 is not None:
             rs_prop_2.update(rs_kw_2)
         if patch_kw_2 is not None:
             patch_prop_2.update(patch_kw_2)
     
         lbl_prop_1 = {'fontsize':4, 'rotation':90, 'ha':'center', 'va':'center'}
-        lbl_prop_2 = {'fontsize':4, 'rotation':90, 'ha':'center', 'va':'center'}
+        lbl_prop_2 = lbl_prop_1.copy()
         if lbl_kw_1 is not None:
             lbl_prop_1.update(lbl_kw_1)
         if lbl_kw_2 is not None:
@@ -502,8 +495,8 @@ class GseaReg(Gsea1T):
 class GseaRegTMultSigs(Gsea1TMultSigs, GseaReg):
      
     def __init__(self, 
-                 dset:pd.DataFrame, 
-                 regulon:dict,  
+                 dset: pd.DataFrame, 
+                 regulon: pd.DataFrame,  
                  ordered: bool=True):
                     
         if not isinstance(dset, pd.DataFrame):
@@ -513,28 +506,28 @@ class GseaRegTMultSigs(Gsea1TMultSigs, GseaReg):
             self.dset = _prep_ges(dset)
             self.ns = len(self.dset)
             self.samples = self.dset.columns.values
-            
-        if not isinstance(regulon, dict):
-            raise TypeError('Regulon needs to be supplied as a dictionary, please.')
+             
+        if not isinstance(regulon, pd.DataFrame):
+            raise TypeError('Regulon needs to be supplied as a DataFrame, please.')
         else:
-            self.regulator = list(regulon.keys())[0]
-        
-        if not isinstance(list(regulon.values())[0], pd.DataFrame):
-            raise TypeError('Regulon values need to be supplied in a pandas DataFrame, please.')
-        else:
-            self.reg_df_in = list(regulon.values())[0]
-        
-        if not all(self.reg_df_in.columns.values == np.array(['target', 'mor', 'likelihood'])):
-            raise ValueError('Regulon value DataFrame must have columns: target, mor, likelihood')
+            self.regulator = ''.join(set(regulon['source']))
+            self.regulon_in = regulon
+       
+        # if not all(self.reg_df_in.columns.values == np.array(['target', 'mor', 'likelihood'])):
+        #     raise ValueError('Regulon value DataFrame must have columns: target, mor, likelihood')
 
-        if not np.in1d(self.reg_df_in['target'].values, self.dset.index).any():
+        if not np.in1d(self.regulon_in['target'].values, self.dset.index).any():
             raise ValueError("None of the regulator targets were found in the gene expression signature index!")
         else:
-            self.reg_df, self.reg_pos, self.reg_neg = self._split_regulon(self.reg_df_in, self.dset.index)
+            self.reg_df, self.reg_pos, self.reg_neg = self._split_regulon(self.regulon_in, self.dset.index)
             
-        self.stats = self._get_stats(dset=self.dset, regulon=regulon, samples=self.samples)
+        self.stats = self._get_stats(dset=self.dset, 
+                                     regulon=regulon, 
+                                     minsize=len(self.reg_df),
+                                     samples=self.samples)
         
-        self.gs_idx = self._find_hits(self.dset, self.reg_pos['target'].to_list(), self.reg_neg['target'].to_list())
+        self.gs_idx = self._find_hits(self.dset, self.reg_pos['target'].to_list(), 
+                                      self.reg_neg['target'].to_list())
 
         if ordered:
             idx = self.stats['NES'].argsort().values
@@ -578,8 +571,8 @@ class GseaRegTMultSigs(Gsea1TMultSigs, GseaReg):
         
         evt_data = [arr for tup in self.gs_idx.values for arr in tup]
         
-        norm_prop = {'vcenter':0, 
-                    'vmin':np.min(df['NES'].values), 
+        norm_prop = {'vmin':np.min(df['NES'].values),
+                     'vcenter':0,  
                     'vmax':np.max(df['NES'].values)}
         
         evt_prop = {'linelengths':0.33, 'alpha':0.7, 'linewidths':0.5}
@@ -637,7 +630,6 @@ class GseaRegTMultSigs(Gsea1TMultSigs, GseaReg):
         lofs, ytick_pos = pl._prepare_multi_gseareg(linelengths=evt_prop.get('linelengths'), 
                                          number_of_ys=len(self.samples))
         
-        
         cls = np.tile(regulon_colors, len(self.samples))
             
         with plt.rc_context(rc_new):
@@ -686,12 +678,13 @@ class GseaRegTMultSigs(Gsea1TMultSigs, GseaReg):
 
 class GseaMultReg:
     
-    """ To implement one-tailed gene set enrichment of multiple gene sets on one gene expression signature
+    """ To implement one-tailed gene set enrichment of multiple regulons on one gene expression signature
     and visualize the results """
 
     def __init__(self, 
                  ges: pd.Series, 
-                 regulons: dict,
+                 regulons: pd.DataFrame,
+                 minsize: int = 20,
                  ordered: bool=True):
         
         if not isinstance(ges, pd.Series):
@@ -700,20 +693,18 @@ class GseaMultReg:
             self.ges = _prep_ges(ges)
             self.ns = len(self.ges)
             self.along_scores = [*range(self.ns)]
+            self.minsize = minsize
             
-        if not isinstance(regulons, dict):
-            raise TypeError('Regulons needs to be supplied as a dictionary, please.')
+        if not isinstance(regulons, pd.DataFrame):
+            raise TypeError('Regulons need to be supplied as a DataFrame, please.')
         
-        if not all(list(map(lambda df: isinstance(df, pd.DataFrame), regulons.values()))):
-            raise TypeError('Individual regulons need to be supplied in a pandas DataFrame, please.')
-        
-        self.regulons_in = len(regulons)
+        self.regulons_in = regulons['source'].nunique()
            
-        self.targets = self._split_regulons(regulons)
+        self.targets = self._split_regulons(regulons=regulons)
         
         self.target_idx = self._find_hits(self.ges, self.targets)
         
-        self.stats = self._get_stats(self.ges, regulons)
+        self.stats = self._get_stats(self.ges, regulons, minsize=self.minsize)
                   
         if ordered:
             idx = self.stats['NES'].argsort().values
@@ -721,7 +712,6 @@ class GseaMultReg:
             self.stats.reset_index(inplace=True, drop=True)
             
             
-
     def __repr__(self):
 
         """String representation for the Gsea1TMultSet class"""
@@ -731,13 +721,19 @@ class GseaMultReg:
                 f"Regulators provided: {self.regulons_in}\n"
                 f"Regulators evaluated: {len(self.stats)}"
                 )
+        
     def _split_targets(self, df):
         mask = df['mor']>=0
         return df['target'].values[mask], df['target'].values[~mask]
   
-    def _split_regulons(self, regulons:dict):
-        targs = [self._split_targets(df) for df in regulons.values()]
-        return pd.DataFrame(targs, index=regulons.keys(), columns=['pos_targets', 'neg_targets'])
+    def _split_regulons(self, regulons:pd.DataFrame):
+        targets = regulons.groupby('source').apply(self._split_targets)
+        
+        target_df = pd.DataFrame(zip(*targets), 
+                               columns=targets.index, 
+                               index=['positive_targets', 'negative_targets'])
+        
+        return target_df.T
         
     def _find_hits(self, 
                    ges: pd.Series, 
@@ -754,15 +750,19 @@ class GseaMultReg:
         # This will have to be sorted first, which is the case in this Class
         ges = ges.argsort()
         
-        pos = [ges[ges.index.intersection(val)].values for val in target_df['pos_targets'].values]
-        neg = [ges[ges.index.intersection(val)].values for val in target_df['neg_targets'].values]
+        pos = [ges[ges.index.intersection(val)].values for val in target_df['positive_targets'].values]
+        neg = [ges[ges.index.intersection(val)].values for val in target_df['negative_targets'].values]
         
-        return pd.DataFrame(zip(pos, neg), index=target_df.index, columns=['pos_idx', 'neg_idx'])
+        pos_df = pd.DataFrame(zip(pos, neg), 
+                            index=target_df.index, 
+                            columns=['pos_idx', 'neg_idx'])
         
+        return pos_df
+    
     def _get_stats(self, 
                    ges: pd.Series,
-                   regulons: dict,
-                   minsize:int=20):
+                   regulons: pd.DataFrame,
+                   minsize:int):
         
         """Computes normalized enrichment scores and some tools for later visualization
 
@@ -782,15 +782,13 @@ class GseaMultReg:
         nes.reset_index(inplace=True)
 
         return nes
-        
-        
                     
     def plot(self, 
              figsize: tuple = (3, 3),
              conditions: tuple = ('A', 'B'),
              regulon_colors: tuple=('#AC3220', '#50808E'),
              ges_symlog: bool=True,
-             ges_stat_fmt:str='1:0f',
+             ges_stat_fmt:str='1.0f',
              subset: dict = None,
              ges_type:str = None,
              ges_kw: dict = None,
@@ -819,7 +817,7 @@ class GseaMultReg:
         df = self.stats.copy() 
                
         # Some setup: 
-        ges_prop = {'color':'.5', 'alpha':0.25}
+        ges_prop = {'color':'.5', 'alpha':0.25, 'linewidth':0.1}
         evt_prop = {'alpha':0.7, 'linelengths':0.5, 'linewidths':0.5}         
         norm_prop = {'vcenter':0, 
                     'vmin':np.min(df['NES'].values), 
@@ -873,7 +871,8 @@ class GseaMultReg:
         ax1 = fig.add_subplot(gs[0,0])
         if ges_kw is not None:
             ges_prop.update(ges_kw)
-        pl._plot_ges(self.along_scores, self.ges.values, 
+        pl._plot_ges(self.along_scores, 
+                     self.ges.values, 
                      ges_type=ges_type, 
                      conditions=conditions, 
                      is_high_to_low=False, 

@@ -1,13 +1,12 @@
 import numpy as np
 import pandas as pd
-from pandas.core.indexing import is_nested_tuple
 from scipy.stats import norm
 from typing import Union, Tuple
 
 
 def aREA(dset: Union[pd.DataFrame, pd.Series], 
-         regulon: dict, 
-         minsize: int = 20)->Union[pd.Series, pd.DataFrame]:
+         regulon: pd.DataFrame, 
+         minsize: int = 20)->pd.DataFrame:
     
     """[This function takes an , respectively, and
     computes analytic rank-based enrichment analysis as described in Alvarez et al., Nat
@@ -29,15 +28,15 @@ def aREA(dset: Union[pd.DataFrame, pd.Series],
     t1, t2 = get_tmats(dset)
 
     # get weight matrices from MoR and Likelihood
-    mor, lik, lik_scaled = get_mor_lik(regulon, minsize=minsize)
+    mor, wts, wtss = get_mor_wts(regulon, minsize=minsize)
 
     # calculate three-tailed enrichment score
-    s1 = calc_2TES(t2, mor, lik_scaled) #2Tailed ES
-    s2 = calc_1TES(t1, mor, lik_scaled) #1tailed ES
+    s1 = calc_2TES(t2, mor, wtss) #2Tailed ES
+    s2 = calc_1TES(t1, mor, wtss) #1tailed ES
     s3 = calc_3TES(s1, s2)
 
     # Normalize
-    nes = calc_nes(s3, lik)
+    nes = calc_nes(s3, wts)
 
     return nes
 
@@ -147,50 +146,36 @@ def calc_2TES(t2:pd.DataFrame,
     return s1
 
 
-
-def get_mor_lik(regulon: dict, 
+def get_mor_wts(regulon: pd.DataFrame, 
                 minsize: int)-> Tuple[pd.DataFrame, pd.DataFrame]:
-
-    """Creates the Mode of Regulation and Scaled weights matrices using data contained in the network inferred by ARACNe
-
-    Args:
-      regulon: dict: A regulon, i.e. dictionary containing DataFrames for each regulator or pathway which hold information 
-      on targets, mode of regulation and likelihoods.
-      minsize: int: Integer specifying the minimum required number of target genes for a regulator be to considered for
-    enrichment analysis. (Default value = 20)
-
-    Returns:
-      Tuple: Tuple containing three DataFrames: Mode of Regulation, Likelihood and scaled Likelihood
-
-    """
-      
-    mors = []
-    liks = []
-
-    assert isinstance(regulon, dict), 'Need a dictionary containing DataFrames as regulon input'
-
-    for key, val in regulon.items():
-
-        # implement filter step here
-        if len(val) >= minsize:
-            mors.append(pd.Series(data=val['mor'].values,
-                    index=val['target'].values,
-                    name=key))
-            liks.append(pd.Series(data=val['likelihood'].values/np.max(val['likelihood']),
-                    index=val['target'].values,
-                    name=key))
-
-    # join using outer join to keep all targets
-    mor_df = pd.concat(mors, axis=1)
-    mor_df.fillna(0, inplace=True)
+ 
+    if not isinstance(regulon, pd.DataFrame):
+      raise ValueError('Need a pandas DataFrame as a regulon')
+    if len(regulon.columns)!=4:
+      raise ValueError('Regulon DataFrame needs 4 columns: source, target, mor, likelihood')
     
-    lik_df = pd.concat(liks, axis=1)
-    lik_df.fillna(0, inplace=True)
-    
+    if not all(regulon.columns.values == np.array(['source', 'target', 'mor', 'likelihood'])):
+      regulon.columns = ['source', 'target', 'mor', 'likelihood']
+
+    # Wrangling
+    df = regulon.copy()
+    df.set_index(['source', 'target'], inplace=True)
+    mor = df['mor'].unstack(level=0)
+    wts = df['likelihood'].unstack(level=0)
+   
+    # Implement filter step
+    keep = mor.notnull().sum() >= minsize
+    mor = mor.loc[:,keep]
+    mor.fillna(0, inplace=True)
+    wts = wts.loc[:,keep]
+    wts.fillna(0, inplace=True)  
+    # Scale likelihood values
+    wts = wts / np.max(wts.values, axis=0, keepdims=True)
+
     # Scale likelihood DF for column sums
-    lik_scaled = lik_df / np.sum(lik_df.values, axis=0, keepdims=True)
+    wtss = wts / np.sum(wts.values, axis=0, keepdims=True)
 
-    return mor_df, lik_df, lik_scaled
+    return mor, wts, wtss
 
 
 def get_tmats(dset: Union[pd.DataFrame, pd.Series])-> Tuple[pd.DataFrame, pd.DataFrame]:

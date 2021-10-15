@@ -11,7 +11,7 @@ import matplotlib.colors as mcolors
 
 # gene set enrichment and helpers
 from .aREA import aREA
-from ._aREA_utils import genesets2regulon, _prep_ges
+from ._aREA_utils import gene_sets_to_regulon, _prep_ges
 from . import plotting as pl
 from scipy.stats import norm
 from statsmodels.stats.multitest import multipletests
@@ -49,7 +49,7 @@ class Gsea1T:
         self.rs = self._derive_rs(self.ges, self.gs_idx, self.weight)
         self.es_idx = np.abs(self.rs).argmax()
 
-        self.gs_reg = genesets2regulon({'GS':self.gs_final}, minsize=len(self.gs_final))
+        self.gs_reg = gene_sets_to_regulon({'GS':self.gs_final}, minsize=len(self.gs_final))
         self.aREA_nes = aREA(self.ges,
                             self.gs_reg, 
                             minsize=len(self.gs_final)).iloc[0][0]
@@ -107,8 +107,7 @@ class Gsea1T:
     def _get_ledge(self, 
                    ges: pd.Series,
                    gene_indices: list,
-                   es_index: int,
-                   aREA_nes: float)-> tuple:
+                   es_index: int)-> tuple:
         """
 
         Args:
@@ -122,8 +121,9 @@ class Gsea1T:
         """
         # TODO: This is still a bit of a hack regarding the positions for the leading edge plot
         
+        closer_end = es_index <= (len(ges)-es_index) # if True, we're closer to the left hand side
         
-        if aREA_nes >= 0:
+        if closer_end:
             # Leading edge indices
             ledge_idx = [idx for idx in gene_indices if idx <= es_index]
             ledge_xinfo = np.min(ledge_idx), es_index
@@ -167,7 +167,7 @@ class Gsea1T:
         """
         
         # Some defaults
-        ges_prop = {'color':'.5', 'alpha':0.25}
+        ges_prop = {'color':'.5', 'alpha':0.25, 'linewidth':0.1}
         evt_prop = {'color': 'C0', 'alpha':0.7, 'linewidths':0.5}
         rs_prop = {'color':'C0'}
 
@@ -289,7 +289,7 @@ class Gsea1TMultSigs:
         
         self.gs_idx = self._find_hits(self.dset, self.gs_final)
         
-        self.gs_reg = genesets2regulon({'GS':self.gs_org}, minsize=len(self.gs_final))
+        self.gs_reg = gene_sets_to_regulon({'GS':self.gs_org}, minsize=len(self.gs_final))
         
         self.stats = self._get_stats(dset=self.dset, 
                                      regulon=self.gs_reg, 
@@ -332,7 +332,7 @@ class Gsea1TMultSigs:
     
     def _get_stats(self, 
                    dset: pd.DataFrame, 
-                   regulon: dict, 
+                   regulon: pd.DataFrame, 
                    minsize: int,
                    samples:np.ndarray):
         
@@ -497,7 +497,7 @@ class Gsea1TMultSets:
        
         self.gs_names = list(self.gene_sets.keys())
         
-        self.gs_reg = genesets2regulon(self.gene_sets, minsize=self.minsize)
+        self.gs_reg = gene_sets_to_regulon(self.gene_sets, minsize=self.minsize)
               
         self.gs_idx = self._find_hits(self.ges, self.gene_sets)
         
@@ -549,16 +549,18 @@ class Gsea1TMultSets:
         """
 
         # This will have to be sorted first, which is the case in this Class
-        ges = ges.argsort()
+        ges_idx = ges.copy().argsort()
         
-        return [ges[ges.index.intersection(val)].values for val in gene_sets.values()]
+        ges_pos = [ges_idx[ges_idx.index.intersection(val)].values for val in gene_sets.values()]
+        
+        return pd.DataFrame(zip(gene_sets.keys(), ges_pos), columns=['gene_set', 'positions'])
             
         
     def _get_stats(self, 
                    ges: pd.Series,
-                   regulon: dict,
+                   regulon: pd.DataFrame,
                    minsize: int,
-                   add_positions: list=None):
+                   add_positions: pd.DataFrame=None):
         
         """Computes normalized enrichment scores and some tools for later visualization
 
@@ -569,15 +571,15 @@ class Gsea1TMultSets:
         Returns:
         """
         
-        nes = aREA(ges, regulon, minsize).values.ravel() # get a flattened one-dimensional array
-        pvals = norm.sf(np.abs(nes))*2 # retrieve two-sided p-value from normal distribution
+        nes = aREA(ges, regulon, minsize).iloc[:,0]
+        pvals = norm.sf(np.abs(nes.values))*2 # retrieve two-sided p-value from normal distribution
         fdrs = multipletests(pvals, method = 'fdr_bh')[1] #FDR
 
-        df = pd.DataFrame(data=zip(regulon.keys(), nes, pvals, fdrs),
+        df = pd.DataFrame(data=zip(nes.index.values, nes.values, pvals, fdrs),
                             columns=['gene_set', 'NES', 'pval', 'FDR']) 
         
         if add_positions is not None:
-            df['positions'] = add_positions
+            df = df.merge(add_positions, on='gene_set')
             
         return df
                     
@@ -640,7 +642,7 @@ class Gsea1TMultSets:
         df = self.stats.copy() 
         
         # Some setup: 
-        ges_prop = {'color':'.5', 'alpha':0.25}
+        ges_prop = {'color':'.5', 'alpha':0.25, 'linewidth':0.1}
         evt_prop = {'color': '.15', 'alpha':0.7, 'linelengths':3/4, 'linewidths':0.5}         
         norm_prop = {'vcenter':0, 
                     'vmin':np.min(df['NES'].values), 
