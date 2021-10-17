@@ -24,6 +24,7 @@ This module implements gene set enrichment functionality for two-tailed gene set
 """
 
 class Gsea2T(Gsea1T):
+    """ """
 
     def __init__(self, 
                  ges: pd.Series, 
@@ -101,6 +102,43 @@ class Gsea2T(Gsea1T):
              rs_kw_2: dict = None,
              leg_kw_2:dict=None
              ):
+        """
+
+        Parameters
+        ----------
+        figsize: tuple :
+             (Default value = (3)
+        3) :
+            
+        conditions: tuple :
+             (Default value = ('A')
+        'B') :
+            
+        ges_type: str :
+             (Default value = None)
+        ges_symlog: bool :
+             (Default value = True)
+        ges_stat_fmt:str :
+             (Default value = '1.0f')
+        ges_kw: dict :
+             (Default value = None)
+        evt_kw_1: dict :
+             (Default value = None)
+        rs_kw_1: dict :
+             (Default value = None)
+        leg_kw_1:dict :
+             (Default value = None)
+        evt_kw_2: dict :
+             (Default value = None)
+        rs_kw_2: dict :
+             (Default value = None)
+        leg_kw_2:dict :
+             (Default value = None)
+
+        Returns
+        -------
+
+        """
         
         # Some defaults
         ges_prop = {'color':'.5', 'alpha':0.25, 'linewidth':0.1}
@@ -188,6 +226,43 @@ class Gsea2T(Gsea1T):
          leg_kw_2:dict=None,
          patch_kw_2:dict=None,
          highlight_set_2:tuple=None,):
+        """
+
+        Parameters
+        ----------
+        figsize: tuple :
+             (Default value = (3)
+        3) :
+            
+        lbl_kw_1: dict :
+             (Default value = None)
+        ledge_trim_1:int :
+             (Default value = None)
+        rs_kw_1: dict :
+             (Default value = None)
+        leg_kw_1:dict :
+             (Default value = None)
+        patch_kw_1:dict :
+             (Default value = None)
+        highlight_set_1: tuple :
+             (Default value = None)
+        lbl_kw_2:dict :
+             (Default value = None)
+        ledge_trim_2:int :
+             (Default value = None)
+        rs_kw_2:dict :
+             (Default value = None)
+        leg_kw_2:dict :
+             (Default value = None)
+        patch_kw_2:dict :
+             (Default value = None)
+        highlight_set_2:tuple :
+             (Default value = None)
+
+        Returns
+        -------
+
+        """
         
         fig = plt.figure(figsize=figsize)
         
@@ -252,6 +327,7 @@ class Gsea2T(Gsea1T):
 
 
 class GseaReg(Gsea1T):
+    """ """
 
     def __init__(self, 
                  ges: pd.Series, 
@@ -314,7 +390,19 @@ class GseaReg(Gsea1T):
     def _split_regulon(self, 
                        reg_df:pd.DataFrame, 
                        ges_index: pd.Index):
-        """This will divide the regulon into negative and positive targets"""
+        """This will divide the regulon into negative and positive targets
+
+        Parameters
+        ----------
+        reg_df:pd.DataFrame :
+            
+        ges_index: pd.Index :
+            
+
+        Returns
+        -------
+
+        """
         # prefiltering
         reg_df_new = reg_df[reg_df['target'].isin(ges_index)] # We test that there must be some before, so safe to subset. 
         
@@ -341,6 +429,43 @@ class GseaReg(Gsea1T):
              stat_kw:dict =None,
              leg_kw:dict=None
              ):
+        """
+
+        Parameters
+        ----------
+        figsize: tuple :
+             (Default value = (3)
+        3) :
+            
+        conditions: tuple :
+             (Default value = ('A')
+        'B') :
+            
+        ges_type: str :
+             (Default value = None)
+        ges_symlog: bool :
+             (Default value = True)
+        ges_stat_fmt:str :
+             (Default value = '1.0f')
+        ges_kw: dict :
+             (Default value = None)
+        evt_kw_1: dict :
+             (Default value = None)
+        rs_kw_1: dict :
+             (Default value = None)
+        evt_kw_2: dict :
+             (Default value = None)
+        rs_kw_2: dict :
+             (Default value = None)
+        stat_kw:dict :
+             (Default value = None)
+        leg_kw:dict :
+             (Default value = None)
+
+        Returns
+        -------
+
+        """
         
         # Some defaults
         ges_prop = {'color':'.5', 'alpha':0.25, 'linewidth':0.1}
@@ -427,6 +552,43 @@ class GseaReg(Gsea1T):
          rs_kw_2:dict = None,
          patch_kw_2:dict=None,
          highlight_set_2:tuple=None,):
+        """
+
+        Parameters
+        ----------
+        figsize: tuple :
+             (Default value = (3)
+        3) :
+            
+        stat_kw:dict :
+             (Default value = None)
+        leg_kw:dict :
+             (Default value = None)
+        lbl_kw_1: dict :
+             (Default value = None)
+        ledge_trim_1:int :
+             (Default value = None)
+        rs_kw_1: dict :
+             (Default value = None)
+        patch_kw_1:dict :
+             (Default value = None)
+        highlight_set_1: tuple :
+             (Default value = None)
+        lbl_kw_2:dict :
+             (Default value = None)
+        ledge_trim_2:int :
+             (Default value = None)
+        rs_kw_2:dict :
+             (Default value = None)
+        patch_kw_2:dict :
+             (Default value = None)
+        highlight_set_2:tuple :
+             (Default value = None)
+
+        Returns
+        -------
+
+        """
         
         fig = plt.figure(figsize=figsize)
         
@@ -493,6 +655,7 @@ class GseaReg(Gsea1T):
     
     
 class GseaRegTMultSigs(Gsea1TMultSigs, GseaReg):
+    """ """
      
     def __init__(self, 
                  dset: pd.DataFrame, 
@@ -557,13 +720,31 @@ class GseaRegTMultSigs(Gsea1TMultSigs, GseaReg):
         """This will return a figure object containing 4 axes displaying the gene expression signature,
         the gene set indices and the running sum line
 
-        Args:
-          bar_alpha: float:  (Default value = 0.5)
-          figsize: tuple:  (Default value = (3.5)
-          3): 
-          norm_kws: dict:  (Default value = None)
+        Parameters
+        ----------
+        bar_alpha :
+            float:  (Default value = 0.5)
+        figsize :
+            tuple:  (Default value = (3.5)
+        3) :
+            
+        norm_kws :
+            dict:  (Default value = None)
+        figsize: tuple :
+             (Default value = (3)
+        regulon_colors:tuple :
+             (Default value = ('#AC3220')
+        '#50808E') :
+            
+        evt_kw: dict :
+             (Default value = None)
+        norm_kw: dict :
+             (Default value = None)
+        pcm_kw: dict :
+             (Default value = None)
 
-        Returns:
+        Returns
+        -------
 
         """
         
@@ -678,8 +859,16 @@ class GseaRegTMultSigs(Gsea1TMultSigs, GseaReg):
 
 class GseaMultReg:
     
-    """ To implement one-tailed gene set enrichment of multiple regulons on one gene expression signature
-    and visualize the results """
+    """To implement one-tailed gene set enrichment of multiple regulons on one gene expression signature
+    and visualize the results
+
+    Parameters
+    ----------
+
+    Returns
+    -------
+
+    """
 
     def __init__(self, 
                  ges: pd.Series, 
@@ -723,10 +912,32 @@ class GseaMultReg:
                 )
         
     def _split_targets(self, df):
+        """
+
+        Parameters
+        ----------
+        df :
+            
+
+        Returns
+        -------
+
+        """
         mask = df['mor']>=0
         return df['target'].values[mask], df['target'].values[~mask]
   
     def _split_regulons(self, regulons:pd.DataFrame):
+        """
+
+        Parameters
+        ----------
+        regulons:pd.DataFrame :
+            
+
+        Returns
+        -------
+
+        """
         targets = regulons.groupby('source').apply(self._split_targets)
         
         target_df = pd.DataFrame(zip(*targets), 
@@ -740,11 +951,20 @@ class GseaMultReg:
                    target_df: pd.DataFrame):
         """
 
-        Args:
-          ges: pd.Series: 
-          gene_sets: dict: 
+        Parameters
+        ----------
+        ges :
+            pd.Series:
+        gene_sets :
+            dict:
+        ges: pd.Series :
+            
+        target_df: pd.DataFrame :
+            
 
-        Returns: 
+        Returns
+        -------
+
         """
 
         # This will have to be sorted first, which is the case in this Class
@@ -766,11 +986,21 @@ class GseaMultReg:
         
         """Computes normalized enrichment scores and some tools for later visualization
 
-        Args:
-          ges: pd.Series: 
-          regulon: dict: 
+        Parameters
+        ----------
+        ges :
+            pd.Series:
+        regulon :
+            dict:
+        ges: pd.Series :
+            
+        regulons: pd.DataFrame :
+            
+        minsize:int :
+            
 
-        Returns:
+        Returns
+        -------
 
         """
         
@@ -800,16 +1030,49 @@ class GseaMultReg:
         """This will return a figure object containing 4 axes displaying the gene expression signature,
         the gene set indices and the Normalized Enrichment scores and associated FDR
 
-        Args:
-          phenotypes: tuple:  (Default value = ('A')
-          'B'): 
-          bar_alpha: float:  (Default value = 0.5)
-          figsize: tuple:  (Default value = (3.5)
-          3): 
-          norm_kws: dict:  (Default value = None)
-          ges_type:str:  (Default value = None)
+        Parameters
+        ----------
+        phenotypes :
+            tuple:  (Default value = ('A')
+        'B') :
+            
+        bar_alpha :
+            float:  (Default value = 0.5)
+        figsize :
+            tuple:  (Default value = (3.5)
+        3) :
+            
+        norm_kws :
+            dict:  (Default value = None)
+        ges_type :
+            str:  (Default value = None)
+        figsize: tuple :
+             (Default value = (3)
+        conditions: tuple :
+             (Default value = ('A')
+        regulon_colors: tuple :
+             (Default value = ('#AC3220')
+        '#50808E') :
+            
+        ges_symlog: bool :
+             (Default value = True)
+        ges_stat_fmt:str :
+             (Default value = '1.0f')
+        subset: dict :
+             (Default value = None)
+        ges_type:str :
+             (Default value = None)
+        ges_kw: dict :
+             (Default value = None)
+        evt_kw: dict :
+             (Default value = None)
+        pcm_kw: dict :
+             (Default value = None)
+        norm_kw: dict :
+             (Default value = None)
 
-        Returns:
+        Returns
+        -------
 
         """
         

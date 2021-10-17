@@ -6,29 +6,40 @@ from typing import Union, Tuple
 
 def aREA(dset: Union[pd.DataFrame, pd.Series], 
          regulon: pd.DataFrame, 
+         dset_filter: bool = False,
          minsize: int = 20)->pd.DataFrame:
     
     """[This function takes an , respectively, and
     computes analytic rank-based enrichment analysis as described in Alvarez et al., Nat
     Genetics, 2016]
 
-    Args:
-      dset: Union[pd.DataFrame:pd.Series]: Numeric expression matrix or single signature.
-      regulon: dict: A regulon, i.e. dictionary containing DataFrames for each regulator or pathway which holds
-    the information on targets, mode of regulation and likelihoods.
-      minsize: int: Integer specifying the minimum required number of target genes for a regulator be to considered for
-    enrichment analysis. (Default value = 20)
+    Parameters
+    ----------
+    dset: Union[pd.DataFrame :
+        
+    pd.Series] :
+        
+    regulon: pd.DataFrame :
+        
+    minsize: int :
+         (Default value = 20)
 
-    Returns:
-      pd.Series:pd.DataFrame: A pandas Series or DataFrame of Normalized Enrichment Scores.
+    Returns
+    -------
 
     """
+    
+    # Pre-processing
+    if dset_filter:
+      dset = filter_dset(dset, regulon)
+    
+    regulon_filtered = filter_regulon(dset, regulon, minsize=minsize)
     
     # transform dset to rank matrices
     t1, t2 = get_tmats(dset)
 
     # get weight matrices from MoR and Likelihood
-    mor, wts, wtss = get_mor_wts(regulon, minsize=minsize)
+    mor, wts, wtss = get_mor_wts(regulon_filtered, new_index=t2.index)
 
     # calculate three-tailed enrichment score
     s1 = calc_2TES(t2, mor, wtss) #2Tailed ES
@@ -42,25 +53,29 @@ def aREA(dset: Union[pd.DataFrame, pd.Series],
 
 
 def calc_nes(s3:pd.DataFrame, 
-             lik:pd.DataFrame)->pd.DataFrame:
-    """
-        This function normalizes the three-tailed enrichment score using the weights from the interaction confidence
+             wts:pd.DataFrame)->pd.DataFrame:
+    """This function normalizes the three-tailed enrichment score using the weights from the interaction confidence
 
-    Args:
-    s3:pd.DataFrame: Numeric DataFrame containing three-tailed enrichment scores.
-    lik:pd.DataFrame: Numeric DataFrame containing likelihoods between regulators and targets.
+    Parameters
+    ----------
+    s3:pd.DataFrame :
+        
+    lik:pd.DataFrame :
+        
 
-    Returns:
-      pd.DataFrame: A DataFrame of Normalized Enrichment Scores
+    Returns
+    -------
 
     """
 
     # likelihood weights
-    lwt = np.sqrt(np.sum(lik.values**2,axis=0))[:,np.newaxis]
+    lwts = np.sqrt(np.sum(wts.values**2, axis=0))[:,np.newaxis]
 
-    nes = s3 * lwt
+    nes = s3.values * lwts
+    
+    nes_df = pd.DataFrame(nes, index=s3.index, columns=s3.columns)
 
-    return nes
+    return nes_df
 
 
 def calc_3TES(s1:pd.DataFrame, 
@@ -69,12 +84,15 @@ def calc_3TES(s1:pd.DataFrame,
     """This function calculates the three-tailed enrichment score from two enrichment score (ES) DataFrames.
         It will expect the two-tail ES as s1 and one-tail ES as s2.
 
-    Args:
-      s1:pd.DataFrame: Numeric DataFrame of two-tailed enrichment scores
-      s2:pd.DataFrame: Numeric DataFrame of one-tailed enrichment scores
+    Parameters
+    ----------
+    s1:pd.DataFrame :
+        
+    s2:pd.DataFrame :
+        
 
-    Returns:
-      pd.DataFrame: Numeric DataFrame containing three-tailed enrichment scores
+    Returns
+    -------
 
     """
 
@@ -83,71 +101,99 @@ def calc_3TES(s1:pd.DataFrame,
     s1_signs[s1_signs>=0] = 1
     s1_signs[s1_signs<0] = -1
 
+    s2_signs = s2.copy()
+    s2_signs = (s2_signs.values > 0).astype(int)
+    
     # Create final ES
-    s3 = (s1.abs() + s2 * (s2 > 0)) * s1_signs
-    return s3
+    s3 = (np.abs(s1.values) + s2.values * s2_signs) * s1_signs.values
+    
+    s3_df = pd.DataFrame(s3, index=s1.index, columns=s1.columns)
+    return s3_df
 
 
 
 def calc_1TES(t1:pd.DataFrame, 
               mor:pd.DataFrame, 
-              lik_scaled:pd.DataFrame)->pd.DataFrame:
+              wtss:pd.DataFrame)->pd.DataFrame:
 
     """[This function calculates the one-tail enrichment score DataFrame]
 
-    Args:
-      t1:pd.DataFrame:Numeric DataFrame containing T1 ranked data, i.e. scaled expression values which are highest
-    when the input approaches the negative and positive extremes, respectively.
-      mor:pd.DataFrame: Numeric DataFrame containing the Mode of Regulation information between regulators and their targets
-      lik_scaled:pd.DataFrame: Numeric DataFrame containing scaled weights, i.e. likelihoods bwetween each regulator and target.
+    Parameters
+    ----------
+    t1:pd.DataFrame :
+        
+    mor:pd.DataFrame :
+        
+    lik_scaled:pd.DataFrame :
+        
 
-    Returns:
-      pd.DataFrame: A numeric DataFrame containing one-tailed enrichment score results
+    Returns
+    -------
 
     """
     # Weight DataFrame irrespective of direction
-    wm1 = (1 - mor.abs()) * lik_scaled
+    wm1 = (1 - np.abs(mor.values)) * wtss.values
     # Align matrices
-    pos = t1.index.intersection(wm1.index)
-    t1 = t1.loc[pos]
-    wm1 = wm1.loc[pos]
+    # pos = t1.index.intersection(wm1.index)
+    # t1 = t1.loc[pos]
+    # wm1 = wm1.loc[pos]
 
     # Multiply
-    s2 = wm1.T @ t1
-    return s2
+    s2 = wm1.T @ t1.loc[mor.index].values
+    
+    s2_df = pd.DataFrame(s2, index=mor.columns, columns=t1.columns)
+    return s2_df
 
 
 def calc_2TES(t2:pd.DataFrame, 
               mor: pd.DataFrame, 
-              lik_scaled: pd.DataFrame)->pd.DataFrame:
+              wtss: pd.DataFrame)->pd.DataFrame:
 
     
     """This function calculates the two-tail enrichment score DataFrame
 
-    Args:
-      t2:pd.DataFrame: Numeric DataFrame containing T2 ranked data, i.e. scaled expression values from 0 (low) to 1 (high).
-      mor: pd.DataFrame: Numeric DataFrame containing the Mode of Regulation information between regulators and their targets.
-      lik_scaled: pd.DataFrame: Numeric DataFrame containing scaled weights, i.e. likelihoods bwetween each regulator and target.
+    Parameters
+    ----------
+    t2:pd.DataFrame :
+        
+    mor: pd.DataFrame :
+        
+    lik_scaled: pd.DataFrame :
+        
 
-    Returns:
-      pd.DataFrame: A numeric DataFrame containing two-tailed enrichment score results.
+    Returns
+    -------
 
     """
     # Create two-tailed weighted MoR DF
-    wm2 = mor * lik_scaled
+    wm2 = mor.values * wtss.values
 
     # Align DFs
-    pos = t2.index.intersection(wm2.index)
-    t2 = t2.loc[pos]
-    wm2 = wm2.loc[pos]
+    # pos = t2.index.intersection(wm2.index)
+    # t2 = t2.loc[pos]
+    # wm2 = wm2.loc[pos]
 
     # Multiply
-    s1 = wm2.T @ t2
-    return s1
+    s1 = wm2.T @ t2.loc[mor.index].values
+    
+    s1_df = pd.DataFrame(s1, index=mor.columns, columns=t2.columns)
+    return s1_df
 
 
-def get_mor_wts(regulon: pd.DataFrame, 
-                minsize: int)-> Tuple[pd.DataFrame, pd.DataFrame]:
+def get_mor_wts(regulon: pd.DataFrame, new_index:pd.Index)-> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """
+
+    Parameters
+    ----------
+    regulon: pd.DataFrame :
+        
+    minsize: int :
+        
+
+    Returns
+    -------
+
+    """
  
     if not isinstance(regulon, pd.DataFrame):
       raise ValueError('Need a pandas DataFrame as a regulon')
@@ -164,19 +210,16 @@ def get_mor_wts(regulon: pd.DataFrame,
     wts = df['likelihood'].unstack(level=0)
    
     # Implement filter step
-    keep = mor.notnull().sum() >= minsize
-    mor = mor.loc[:,keep]
     mor.fillna(0, inplace=True)
-    wts = wts.loc[:,keep]
+    
     wts.fillna(0, inplace=True)  
     # Scale likelihood values
     wts = wts / np.max(wts.values, axis=0, keepdims=True)
-
+    
     # Scale likelihood DF for column sums
     wtss = wts / np.sum(wts.values, axis=0, keepdims=True)
 
     return mor, wts, wtss
-
 
 def get_tmats(dset: Union[pd.DataFrame, pd.Series])-> Tuple[pd.DataFrame, pd.DataFrame]:
 
@@ -184,11 +227,15 @@ def get_tmats(dset: Union[pd.DataFrame, pd.Series])-> Tuple[pd.DataFrame, pd.Dat
     T1 and T2 numeric DataFrames, i.e. the scaled expression rank of every gene within the sample. The ranked values are
     transformed to quantiles from the normal distribution.
 
-    Args:
-      dset: Union[pd.DataFrame:pd.Series]: Numeric Series or DataFrame with genes as Index.
+    Parameters
+    ----------
+    dset: Union[pd.DataFrame :
+        
+    pd.Series] :
+        
 
-    Returns:
-      Tuple: Tuple containing two DataFrames: T1 and T2 ranks
+    Returns
+    -------
 
     """
     assert isinstance(dset, pd.Series) or isinstance(dset, pd.DataFrame), 'Wrong data input'
@@ -219,3 +266,35 @@ def get_tmats(dset: Union[pd.DataFrame, pd.Series])-> Tuple[pd.DataFrame, pd.Dat
                   columns=t1.columns)
 
     return t1q, t2q
+
+
+
+
+def filter_dset(dset: Union[pd.DataFrame, pd.Series], 
+                            regulon: pd.DataFrame):
+  
+  mask = dset.index.isin(regulon['target'])
+  
+  try:
+    dset_filtered = dset.loc[mask].copy()
+    return dset_filtered
+  
+  except:
+    raise ValueError("Didn't find any suitable targets in the expression signature(s)!")
+          
+def filter_regulon(dset: Union[pd.DataFrame, pd.Series], 
+                            regulon: pd.DataFrame, 
+                            minsize: int):
+  
+  mask = regulon['target'].isin(dset.index)
+   
+  try:
+    reg_filtered = regulon[mask].copy()
+    cts = reg_filtered.groupby('source')['target'].count() 
+    keep_rps = cts[cts>=minsize].index
+    regulon_filtered_pruned = reg_filtered[reg_filtered['source'].isin(keep_rps)]
+    return regulon_filtered_pruned
+  except:
+    raise ValueError("Fialed at filtering and pruning the regulon")
+  
+  

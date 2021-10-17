@@ -18,6 +18,33 @@ def _plot_ges(along_scores: list,
               is_high_to_low: bool = True,
               ax = None,
               **kwargs):
+    """
+
+    Parameters
+    ----------
+    along_scores: list :
+        
+    ges_values:np.ndarray :
+        
+    ges_type: str :
+        
+    conditions: tuple :
+        
+    symlog:bool :
+        
+    stat_fmt:str :
+        
+    is_high_to_low: bool :
+         (Default value = True)
+    ax :
+         (Default value = None)
+    **kwargs :
+        
+
+    Returns
+    -------
+
+    """
     if ax is None:
         ax = plt.gca()
         
@@ -49,6 +76,25 @@ def _plot_run_sum(run_sum:np.ndarray,
                   add: bool=False,
                   ax=None,
                   **kwargs):
+    """
+
+    Parameters
+    ----------
+    run_sum:np.ndarray :
+        
+    es_idx: int :
+        
+    add: bool :
+         (Default value = False)
+    ax :
+         (Default value = None)
+    **kwargs :
+        
+
+    Returns
+    -------
+
+    """
     if ax is None:
         ax = plt.gca()
         
@@ -70,8 +116,20 @@ def _stats_legend(nes: float,
                 pval: float,
                 leg_kw: dict = None):
     
-    """
-    Turn text for normalized enrichment score into a legend artist for easy placement in the axes.
+    """Turn text for normalized enrichment score into a legend artist for easy placement in the axes.
+
+    Parameters
+    ----------
+    nes: float :
+        
+    pval: float :
+        
+    leg_kw: dict :
+         (Default value = None)
+
+    Returns
+    -------
+
     """
     
     leg_prop = {'loc':0, 
@@ -98,6 +156,21 @@ def _stats_legend(nes: float,
 
 def _add_reg_legend(color_pos:str, color_neg:str, 
                     leg_kw:dict=None):
+    """
+
+    Parameters
+    ----------
+    color_pos:str :
+        
+    color_neg:str :
+        
+    leg_kw:dict :
+         (Default value = None)
+
+    Returns
+    -------
+
+    """
     
     leg_prop = {'loc':1, #default position is top right
                 'edgecolor':'.15', 
@@ -126,6 +199,29 @@ def _plot_ledge_labels(xlims: tuple,
                        trim_ledge: int=None,
                        ax = None, 
                        **kwargs):
+    """
+
+    Parameters
+    ----------
+    xlims: tuple :
+        
+    genes: tuple :
+        
+    upper: bool :
+         (Default value = True)
+    highlight: tuple :
+         (Default value = None)
+    trim_ledge: int :
+         (Default value = None)
+    ax :
+         (Default value = None)
+    **kwargs :
+        
+
+    Returns
+    -------
+
+    """
     if ax is None:
         ax = plt.gca()
             
@@ -163,6 +259,17 @@ def _plot_ledge_labels(xlims: tuple,
        
  # Fix FDR for plotting
 def _fdr_formatter(val: float):
+    """
+
+    Parameters
+    ----------
+    val: float :
+        
+
+    Returns
+    -------
+
+    """
     if val < 2e-16:
         return r'<2$e^{-16}$'
     else:
@@ -174,6 +281,23 @@ def _prepare_multi_gseareg(linelengths:float,
                                 number_of_ys:int, 
                                 space:float=0.2, 
                                 start:float=0):
+    """
+
+    Parameters
+    ----------
+    linelengths:float :
+        
+    number_of_ys:int :
+        
+    space:float :
+         (Default value = 0.2)
+    start:float :
+         (Default value = 0)
+
+    Returns
+    -------
+
+    """
     
     lineoffsets = []
     tmp = start
@@ -192,6 +316,21 @@ def _prepare_multi_gseareg(linelengths:float,
     return lineoffsets, ytick_pos
 
 def _format_xaxis_ges(ges_length:int, stepsize:int=1000, ax=None):
+    """
+
+    Parameters
+    ----------
+    ges_length:int :
+        
+    stepsize:int :
+         (Default value = 1000)
+    ax :
+         (Default value = None)
+
+    Returns
+    -------
+
+    """
     
     if ax is None:
         ax = plt.gca()
@@ -214,6 +353,31 @@ import matplotlib as mpl
 def _connect_bbox(bbox1, bbox2,
                  loc1a, loc2a, loc1b, loc2b,
                  line_kw=None, patch_kw=None):
+    """
+
+    Parameters
+    ----------
+    bbox1 :
+        
+    bbox2 :
+        
+    loc1a :
+        
+    loc2a :
+        
+    loc1b :
+        
+    loc2b :
+        
+    line_kw :
+         (Default value = None)
+    patch_kw :
+         (Default value = None)
+
+    Returns
+    -------
+
+    """
     
     # get a default for the lines
     line_prop = {"clip_on": False, 'color':'k', 'lw':0.5}
@@ -246,12 +410,28 @@ def zoom_effect(ax1:mpl.axes.Axes,
                 upper: bool=True, 
                 line_kw:dict=None, 
                 patch_kw:dict=None):
-    """
-    ax1 : the main axes
+    """ax1 : the main axes
     ax2 : the zoomed axes
     
     The xmin & xmax will be taken from the
     ax1.viewLim.
+
+    Parameters
+    ----------
+    ax1:mpl.axes.Axes :
+        
+    ax2:mpl.axes.Axes :
+        
+    upper: bool :
+         (Default value = True)
+    line_kw:dict :
+         (Default value = None)
+    patch_kw:dict :
+         (Default value = None)
+
+    Returns
+    -------
+
     """
 
     tt = ax1.transScale + (ax1.transLimits + ax2.transAxes)

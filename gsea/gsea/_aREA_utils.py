@@ -10,13 +10,23 @@ def gene_sets_to_regulon(genesets: dict,
     """This function generates a regulon dictionary suitable for aREA from a 'regulary' dictionary
     of pathway names as keys and a list of the related gene symbols as values.
 
-    Args:
-      genesets: dict: Dictionary of pathway names (=keys) and lists of pathway member genes (=values).
-      minsize: int: Integer specifying the minimum number of genes or targets a pathway or regulator should have (Default value = 20).
-      maxsize: int: Integer specifying the maximum number of genes or targets a pathway or regulator should have (Default value = None).
+    Parameters
+    ----------
+    genesets :
+        dict: Dictionary of pathway names (=keys) and lists of pathway member genes (=values).
+    minsize :
+        int: Integer specifying the minimum number of genes or targets a pathway or regulator should have (Default value = 20).
+    maxsize :
+        int: Integer specifying the maximum number of genes or targets a pathway or regulator should have (Default value = None).
+    genesets: dict :
+        
+    minsize: int :
+         (Default value = 20)
 
-    Returns:
-        dictionary: A dictionary of DataFrames with information on pathway/regulator targets, mode of regulation (always=1) and likelihoods (always=1/N targets).
+    Returns
+    -------
+    dictionary
+        A dictionary of DataFrames with information on pathway/regulator targets, mode of regulation (always=1) and likelihoods (always=1/N targets).
 
     """
 
@@ -39,7 +49,7 @@ def gene_sets_to_regulon(genesets: dict,
 def _gene_set_to_df(gene_set: set, ns: int):
   
   mor = np.ones(ns)
-    
+   
   return pd.DataFrame(data=zip(gene_set, mor, mor/ns),
                       columns=['target', 'mor', 'likelihood'])
 
@@ -51,12 +61,24 @@ def _prep_ges(ges: Union[pd.Series,pd.DataFrame],
     """[This function is used to clean up signatures containing NA's in their index or merging
     scores values for duplicated genes by averaging them.]
 
-    Args:
-      ges: pd.Series or pd.DataFrame: 
-      asc_sort: bool:  (Default value = True)
+    Parameters
+    ----------
+    ges :
+        pd.Series or pd.DataFrame:
+    asc_sort :
+        bool:  (Default value = True)
+    ges: Union[pd.Series :
+        
+    pd.DataFrame] :
+        
+    asc_sort: bool :
+         (Default value = True)
 
-    Returns:
-      pd.Series|pd.DataFrame: cleaned gene expression signature(s)
+    Returns
+    -------
+    pd.Series|pd.DataFrame
+        cleaned gene expression signature(s)
+
     """
     
     assert (isinstance(ges, pd.Series) or isinstance(ges, pd.DataFrame)), 'Need pandas Series or DataFrame!'

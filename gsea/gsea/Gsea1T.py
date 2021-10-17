@@ -69,12 +69,21 @@ class Gsea1T:
 
         """Finds the positions of a gene set in a given gene expression signature list
 
-        Args:
-          ges: pd.Series: The gene expression signature (indexed numeric pandas Series).
-          gene_set: list: The gene set in question. 
+        Parameters
+        ----------
+        ges :
+            pd.Series: The gene expression signature (indexed numeric pandas Series).
+        gene_set :
+            list: The gene set in question.
+        ges: pd.Series :
+            
+        gene_set: list :
+            
 
-        Returns:
-            list: A list of positions for each gene set member in the gene expression signature.
+        Returns
+        -------
+        list
+            A list of positions for each gene set member in the gene expression signature.
 
         """
 
@@ -87,13 +96,26 @@ class Gsea1T:
         
         """Derives the running sum for plotting
 
-        Args:
-          ges: pd.Series: The gene expression signature (indexed numeric pandas Series).
-          gene_indices: list: The positions of the gene set members in the signature.
-          weight: float: Weighting exponent, see Subramanian PNAS 2005, for details. 
+        Parameters
+        ----------
+        ges :
+            pd.Series: The gene expression signature (indexed numeric pandas Series).
+        gene_indices :
+            list: The positions of the gene set members in the signature.
+        weight :
+            float: Weighting exponent, see Subramanian PNAS 2005, for details.
+        ges: pd.Series :
+            
+        gene_indices: list :
+            
+        weight: float :
+            
 
-        Returns:
-          np.array: The running sum array.     
+        Returns
+        -------
+        np.array
+            The running sum array.
+
         """
 
         Nr = np.sum(np.abs(ges[gene_indices])**weight) # normalization factor
@@ -110,14 +132,29 @@ class Gsea1T:
                    es_index: int)-> tuple:
         """
 
-        Args:
-          ges: pd.Series: The gene expression signature (indexed numeric pandas Series).
-          gene_indices: list: 
-          es_index: int: 
+        Parameters
+        ----------
+        ges :
+            pd.Series: The gene expression signature (indexed numeric pandas Series).
+        gene_indices :
+            list:
+        es_index :
+            int:
+        ges: pd.Series :
+            
+        gene_indices: list :
+            
+        es_index: int :
+            
 
-        Returns:
-          tuple: A DataFrame of leading edge genes and their positions in the signature as well as the 
-          x-axis limits of the leading edge area.
+        Returns
+        -------
+        tuple
+            A DataFrame of leading edge genes and their positions in the signature as well as the
+        tuple
+            A DataFrame of leading edge genes and their positions in the signature as well as the
+            x-axis limits of the leading edge area.
+
         """
         # TODO: This is still a bit of a hack regarding the positions for the leading edge plot
         
@@ -154,16 +191,47 @@ class Gsea1T:
         """This will return a figure object containing 3 axes displaying the gene expression signature,
         the gene set indices and the running sum line
 
-        Args:
-          figsize: tuple: Tuple of floats to specify the Figure size in inches (Default value = (2.5, 2.5): 
-          bar_alpha: float: A float between 0 and 1 to specify the alpha for the bars in the eventplot (Default value = 0.7).
-          phenotypes:tuple:  (Default value = ('A', 'B'): A tuple of strings to specify the two phenotypes being compared. 
-          colors: tuple:  (Default value = ('.75', '#439D75'): A tuple of strings for a) the gene expression signature in the first axes and b) the 
-          gene set and running sum in the other two axes.
-          ges_type:str:  A string to specify the type of gene-level statistic (Default value = None)
+        Parameters
+        ----------
+        figsize :
+            tuple: Tuple of floats to specify the Figure size in inches (Default value = (2.5, 2.5):
+        bar_alpha :
+            float: A float between 0 and 1 to specify the alpha for the bars in the eventplot (Default value = 0.7).
+        phenotypes :
+            tuple:  (Default value = ('A', 'B'): A tuple of strings to specify the two phenotypes being compared.
+        colors :
+            tuple:  (Default value = ('.75', '#439D75'): A tuple of strings for a) the gene expression signature in the first axes and b) the
+        colors :
+            tuple:  (Default value = ('.75', '#439D75'): A tuple of strings for a) the gene expression signature in the first axes and b) the
+            gene set and running sum in the other two axes.
+        ges_type :
+            str:  A string to specify the type of gene-level statistic (Default value = None)
+        figsize: tuple :
+             (Default value = (3)
+        3) :
+            
+        conditions: tuple :
+             (Default value = ('A')
+        'B') :
+            
+        ges_symlog: bool :
+             (Default value = True)
+        ges_stat_fmt: str :
+             (Default value = '1.0f')
+        ges_type: str :
+             (Default value = None)
+        ges_kw: dict :
+             (Default value = None)
+        evt_kw: dict :
+             (Default value = None)
+        rs_kw: dict :
+             (Default value = None)
 
-        Returns:
-          A Figure Object. 
+        Returns
+        -------
+        
+            A Figure Object.
+
         """
         
         # Some defaults
@@ -217,6 +285,27 @@ class Gsea1T:
          rs_kw: dict = None,
          lbl_kw: dict = None,
          patch_kw:dict = None)->mpl.figure.Figure:
+        """
+
+        Parameters
+        ----------
+        figsize: tuple :
+             (Default value = (3.5)
+        3) :
+            
+        highlight: tuple :
+             (Default value = None)
+        rs_kw: dict :
+             (Default value = None)
+        lbl_kw: dict :
+             (Default value = None)
+        patch_kw:dict :
+             (Default value = None)
+
+        Returns
+        -------
+
+        """
         
         fig = plt.figure(figsize=figsize)
         
@@ -266,7 +355,7 @@ class Gsea1T:
             
 class Gsea1TMultSigs:
     
-    """ To implement one-tailed gene set enrichment analysis on multiple different signatures and visualize them """
+    """To implement one-tailed gene set enrichment analysis on multiple different signatures and visualize them"""
      
     def __init__(self, 
                  dset:pd.DataFrame, 
@@ -315,7 +404,19 @@ class Gsea1TMultSigs:
        
     def _find_hits(self, dset, *gene_sets):
         
-        """Finds the positions of a gene set in a given gene expression signaure matrix"""
+        """Finds the positions of a gene set in a given gene expression signaure matrix
+
+        Parameters
+        ----------
+        dset :
+            
+        *gene_sets :
+            
+
+        Returns
+        -------
+
+        """
         
         # rank order all signatures 
         hits = dset.apply(lambda x: x.sort_values().argsort(), axis=0)
@@ -336,7 +437,23 @@ class Gsea1TMultSigs:
                    minsize: int,
                    samples:np.ndarray):
         
-        """Computes normalized enrichment scores and some tools for later visualization"""
+        """Computes normalized enrichment scores and some tools for later visualization
+
+        Parameters
+        ----------
+        dset: pd.DataFrame :
+            
+        regulon: pd.DataFrame :
+            
+        minsize: int :
+            
+        samples:np.ndarray :
+            
+
+        Returns
+        -------
+
+        """
         
         nes = aREA(dset, regulon, minsize).iloc[0].values.T.ravel() # get a flattened one-dimensional array
         pvals = norm.sf(np.abs(nes))*2 # retrieve two-sided p-value from normal distribution
@@ -358,13 +475,29 @@ class Gsea1TMultSigs:
         """This will return a figure object containing 4 axes displaying the gene expression signature,
         the gene set indices and the running sum line
 
-        Args:
-          bar_alpha: float:  (Default value = 0.5)
-          figsize: tuple:  (Default value = (3.5)
-          3): 
-          norm_kws: dict:  (Default value = None)
+        Parameters
+        ----------
+        bar_alpha :
+            float:  (Default value = 0.5)
+        figsize :
+            tuple:  (Default value = (3.5)
+        3) :
+            
+        norm_kws :
+            dict:  (Default value = None)
+        figsize: tuple :
+             (Default value = (3)
+        add_title: str :
+             (Default value = None)
+        evt_kw: dict :
+             (Default value = None)
+        norm_kw: dict :
+             (Default value = None)
+        pcm_kw: dict :
+             (Default value = None)
 
-        Returns:
+        Returns
+        -------
 
         """
         
@@ -469,8 +602,16 @@ class Gsea1TMultSigs:
 
 class Gsea1TMultSets:
     
-    """ To implement one-tailed gene set enrichment of multiple gene sets on one gene expression signature
-    and visualize the results """
+    """To implement one-tailed gene set enrichment of multiple gene sets on one gene expression signature
+    and visualize the results
+
+    Parameters
+    ----------
+
+    Returns
+    -------
+
+    """
 
     def __init__(self, 
                  ges: pd.Series, 
@@ -526,12 +667,23 @@ class Gsea1TMultSets:
         """Go through the provided dict of gene sets and check whether at least minsize
         genes of said gene set occur in the gene expression signature
 
-        Args:
-          gene_sets: dict: 
-          genes: pd.Index: 
-          minsize: int: 
+        Parameters
+        ----------
+        gene_sets :
+            dict:
+        genes :
+            pd.Index:
+        minsize :
+            int:
+        gene_sets: dict :
+            
+        genes: pd.Index :
+            
+        minsize: int :
+            
 
-        Returns:
+        Returns
+        -------
 
         """
         return {key:val for key, val in gene_sets.items() if np.in1d(val, genes).sum() >= minsize}
@@ -541,11 +693,20 @@ class Gsea1TMultSets:
                    gene_sets: dict):
         """
 
-        Args:
-          ges: pd.Series: 
-          gene_sets: dict: 
+        Parameters
+        ----------
+        ges :
+            pd.Series:
+        gene_sets :
+            dict:
+        ges: pd.Series :
+            
+        gene_sets: dict :
+            
 
-        Returns: 
+        Returns
+        -------
+
         """
 
         # This will have to be sorted first, which is the case in this Class
@@ -564,11 +725,24 @@ class Gsea1TMultSets:
         
         """Computes normalized enrichment scores and some tools for later visualization
 
-        Args:
-          ges: pd.Series: 
-          regulon: dict: 
+        Parameters
+        ----------
+        ges :
+            pd.Series:
+        regulon :
+            dict:
+        ges: pd.Series :
+            
+        regulon: pd.DataFrame :
+            
+        minsize: int :
+            
+        add_positions: pd.DataFrame :
+             (Default value = None)
 
-        Returns:
+        Returns
+        -------
+
         """
         
         nes = aREA(ges, regulon, minsize).iloc[:,0]
@@ -587,7 +761,19 @@ class Gsea1TMultSets:
     def _filter_multset_stats(stats:pd.DataFrame, 
                               d: dict): 
         
-        """Filter stat results if needed for plotting"""
+        """Filter stat results if needed for plotting
+
+        Parameters
+        ----------
+        stats:pd.DataFrame :
+            
+        d: dict :
+            
+
+        Returns
+        -------
+
+        """
         if not isinstance(d, dict):
             raise TypeError('Subset instructions need to be supplied as dictionary')
         
@@ -625,16 +811,47 @@ class Gsea1TMultSets:
         """This will return a figure object containing 4 axes displaying the gene expression signature,
         the gene set indices and the Normalized Enrichment scores and associated FDR
 
-        Args:
-          phenotypes: tuple:  (Default value = ('A')
-          'B'): 
-          bar_alpha: float:  (Default value = 0.5)
-          figsize: tuple:  (Default value = (3.5)
-          3): 
-          norm_kws: dict:  (Default value = None)
-          ges_type:str:  (Default value = None)
+        Parameters
+        ----------
+        phenotypes :
+            tuple:  (Default value = ('A')
+        'B') :
+            
+        bar_alpha :
+            float:  (Default value = 0.5)
+        figsize :
+            tuple:  (Default value = (3.5)
+        3) :
+            
+        norm_kws :
+            dict:  (Default value = None)
+        ges_type :
+            str:  (Default value = None)
+        figsize: tuple :
+             (Default value = (3)
+        conditions: tuple :
+             (Default value = ('A')
+        strip_gs_names: bool :
+             (Default value = True)
+        ges_symlog: bool :
+             (Default value = True)
+        ges_stat_fmt: str :
+             (Default value = '1.0f')
+        subset: dict :
+             (Default value = None)
+        ges_type:str :
+             (Default value = None)
+        ges_kw: dict :
+             (Default value = None)
+        evt_kw: dict :
+             (Default value = None)
+        pcm_kw: dict :
+             (Default value = None)
+        norm_kw: dict :
+             (Default value = None)
 
-        Returns:
+        Returns
+        -------
 
         """
         
