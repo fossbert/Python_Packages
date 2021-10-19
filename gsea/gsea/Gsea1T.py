@@ -55,7 +55,7 @@ class Gsea1T:
                             minsize=len(self.gs_final)).iloc[0][0]
 
         self.pval = norm.sf(np.abs(self.aREA_nes))*2
-        self.ledge, self.ledge_xinfo = self._get_ledge(self.ges, self.gs_idx, self.es_idx, self.aREA_nes)
+        self.ledge, self.ledge_xinfo = self._get_ledge(self.ges, self.gs_idx, self.es_idx)
 
     def __repr__(self):
 
@@ -455,7 +455,7 @@ class Gsea1TMultSigs:
 
         """
         
-        nes = aREA(dset, regulon, minsize).iloc[0].values.T.ravel() # get a flattened one-dimensional array
+        nes = aREA(dset, regulon, minsize).iloc[0,:].values # get a flattened one-dimensional array
         pvals = norm.sf(np.abs(nes))*2 # retrieve two-sided p-value from normal distribution
         fdrs = multipletests(pvals, method = 'fdr_bh')[1] #FDR
         

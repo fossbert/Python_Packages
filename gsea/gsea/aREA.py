@@ -6,8 +6,9 @@ from typing import Union, Tuple
 
 def aREA(dset: Union[pd.DataFrame, pd.Series], 
          regulon: pd.DataFrame, 
+         minsize: int = 20,
          dset_filter: bool = False,
-         minsize: int = 20)->pd.DataFrame:
+         )->pd.DataFrame:
     
     """[This function takes an , respectively, and
     computes analytic rank-based enrichment analysis as described in Alvarez et al., Nat
@@ -39,7 +40,7 @@ def aREA(dset: Union[pd.DataFrame, pd.Series],
     t1, t2 = get_tmats(dset)
 
     # get weight matrices from MoR and Likelihood
-    mor, wts, wtss = get_mor_wts(regulon_filtered, new_index=t2.index)
+    mor, wts, wtss = get_mor_wts(regulon_filtered)
 
     # calculate three-tailed enrichment score
     s1 = calc_2TES(t2, mor, wtss) #2Tailed ES
@@ -180,7 +181,7 @@ def calc_2TES(t2:pd.DataFrame,
     return s1_df
 
 
-def get_mor_wts(regulon: pd.DataFrame, new_index:pd.Index)-> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+def get_mor_wts(regulon: pd.DataFrame)-> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """
 
     Parameters
