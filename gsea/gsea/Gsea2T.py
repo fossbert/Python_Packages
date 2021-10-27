@@ -6,7 +6,7 @@ import pandas as pd
 
 # Lots of plotting here, so:
 from matplotlib import pyplot as plt
-from matplotlib.cm import coolwarm, ScalarMappable
+from matplotlib.cm import ScalarMappable
 import matplotlib.colors as mcolors
 from matplotlib import ticker
 from pandas.core.frame import DataFrame
@@ -654,7 +654,7 @@ class GseaReg(Gsea1T):
         return fig 
     
     
-class GseaRegTMultSigs(Gsea1TMultSigs, GseaReg):
+class GseaRegMultSigs(Gsea1TMultSigs, GseaReg):
     """ """
      
     def __init__(self, 
@@ -689,7 +689,8 @@ class GseaRegTMultSigs(Gsea1TMultSigs, GseaReg):
                                      minsize=len(self.reg_df),
                                      samples=self.samples)
         
-        self.gs_idx = self._find_hits(self.dset, self.reg_pos['target'].to_list(), 
+        self.gs_idx = self._find_hits(self.dset, 
+                                      self.reg_pos['target'].to_list(), 
                                       self.reg_neg['target'].to_list())
 
         if ordered:
@@ -752,31 +753,13 @@ class GseaRegTMultSigs(Gsea1TMultSigs, GseaReg):
         
         evt_data = [arr for tup in self.gs_idx.values for arr in tup]
         
-        norm_prop = {'vmin':np.min(df['NES'].values),
-                     'vcenter':0,  
-                    'vmax':np.max(df['NES'].values)}
-        
         evt_prop = {'linelengths':0.33, 'alpha':0.7, 'linewidths':0.5}
         
-        pcm_prop = {'cmap':'PuOr_r', 'edgecolor':'.25', 'lw':.5}
-        
+        norm, pcm_prop = pl._prepare_nes_colors(df, norm_kw, pcm_kw)
+      
         # Prettify FDR format
         df['FDR'] = df['FDR'].apply(pl._fdr_formatter)
-                
-        # In this first bit, we determine the NES color scheme
-        if norm_kw is not None:
-            norm_prop.update(norm_kw)
-            
-        norm = mcolors.TwoSlopeNorm(**norm_prop)
-        norm_map = norm(df['NES'].values)
-        
-        # TODO: Pretty heuristically, maybe improve in the future
-        df['color'] = pd.cut(norm_map, 
-                             bins=[0, 0.15, 0.85, 1], 
-                             ordered=False,
-                             labels=['w','k','w'], 
-                             include_lowest=True)
-        
+                      
         fig = plt.figure(figsize=figsize) 
         
         # height ratio may change according to figsize and number of signatures,
@@ -793,7 +776,7 @@ class GseaRegTMultSigs(Gsea1TMultSigs, GseaReg):
         
         # Plot 1: Illustrate the ordered signature as a colorbar
         ax1 = fig.add_subplot(gs[0])
-        cb = fig.colorbar(ScalarMappable(cmap=coolwarm), 
+        cb = fig.colorbar(ScalarMappable(cmap=plt.cm.RdBu_r), 
                           orientation='horizontal', ticks=[], cax=ax1)
         cb.outline.set_visible(False)
         ax1.text(0, 0.5, 'Low', color='w', ha='left', va='center', fontsize='x-small')
@@ -831,8 +814,6 @@ class GseaRegTMultSigs(Gsea1TMultSigs, GseaReg):
     
         # Plot 3: NES heatmap
         ax3 = fig.add_subplot(gs[1,1])
-        if pcm_kw is not None:
-            pcm_prop.update(pcm_kw)
             
         ax3.pcolormesh(df['NES'].values[:,np.newaxis], 
                norm=norm, **pcm_prop)
@@ -1077,43 +1058,27 @@ class GseaMultReg:
         """
         
           # Key input data: 
-        df = self.stats.copy() 
-               
+        df = self.stats.copy()        
+             
         # Some setup: 
         ges_prop = {'color':'.5', 'alpha':0.25, 'linewidth':0.1}
-        evt_prop = {'alpha':0.7, 'linelengths':0.5, 'linewidths':0.5}         
-        norm_prop = {'vcenter':0, 
-                    'vmin':np.min(df['NES'].values), 
-                    'vmax':np.max(df['NES'].values)}
-        pcm_prop = {'cmap':'PuOr_r', 'edgecolor':'.25', 'lw':.5}
-        
-        if norm_kw is not None:
-            norm_prop.update(norm_kw)
-             
-        norm = mcolors.TwoSlopeNorm(**norm_prop)
-        norm_map = norm(df['NES'].values)
+        evt_prop = {'alpha':0.7, 'linelengths':0.5, 'linewidths':0.5}        
         
         
-         # TODO: this works fairly well for now, but could be improved eventually
-        df['color'] = pd.cut(norm_map, 
-                             bins=[0, 0.15, 0.85, 1], 
-                             ordered=False,
-                             labels=['w','k','w'], 
-                             include_lowest=True)
-        
+        norm, pcm_prop = pl._prepare_nes_colors(df, norm_kw, pcm_kw)
+                        
+        # prettify FDR 
+        df['FDR'] = df['FDR'].apply(pl._fdr_formatter)
                     
         if subset is not None:
             df = self._filter_multset_stats(df, subset)
-            df.reset_index(inplace=True)
-        else:
+        elif len(df)>20:
             top_rp = df.take(df['NES'].abs().nlargest(20).index)['Regulator']
             df = df[df['Regulator'].isin(top_rp)]
             df.reset_index(inplace=True, drop=True)
-            
+                  
         targets = self.target_idx.loc[df['Regulator']].values
         evt_data = [arr for tup in targets for arr in tup]
-                   
-        df['FDR'] = df['FDR'].apply(pl._fdr_formatter)
         
         # Setup figure and gridspec
         fig = plt.figure(figsize=figsize) 
@@ -1149,13 +1114,11 @@ class GseaMultReg:
         lofs, ytick_pos = pl._prepare_multi_gseareg(linelengths=evt_prop.get('linelengths'), 
                                          number_of_ys=len(df))
         
-        
         cls = np.tile(regulon_colors, len(df))
         
         if evt_kw is not None:
             evt_prop.update(evt_kw)
-       
-        
+               
         ax2.eventplot(evt_data, lineoffsets=lofs, colors=cls, **evt_prop)
         ax2.set_yticks(ytick_pos)
         add_y = evt_prop.get('linelengths')
@@ -1170,10 +1133,7 @@ class GseaMultReg:
 
         # Plot 3: NES heatmap            
         ax3 = fig.add_subplot(gs[1,1])
-        
-        if pcm_kw is not None:
-            pcm_prop.update(pcm_kw)
-        
+            
         ax3.pcolormesh(df['NES'].values[:,np.newaxis], 
                     norm=norm, **pcm_prop)
     

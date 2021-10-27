@@ -2,9 +2,10 @@
 """Outsourced some helper functions for readability"""
 
 import numpy as np
+import pandas as pd
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-from matplotlib import ticker
+from matplotlib import colors
 from matplotlib.lines import Line2D
 from typing import Union
 
@@ -315,7 +316,7 @@ def _prepare_multi_gseareg(linelengths:float,
     
     return lineoffsets, ytick_pos
 
-def _format_xaxis_ges(ges_length:int, stepsize:int=1000, ax=None):
+def _format_xaxis_ges(ges_length:int, ax=None):
     """
 
     Parameters
@@ -334,7 +335,11 @@ def _format_xaxis_ges(ges_length:int, stepsize:int=1000, ax=None):
     
     if ax is None:
         ax = plt.gca()
-               
+    
+    if ges_length >= 10_000:
+        stepsize = 1000
+    else:
+        stepsize = 500
     xticks = np.percentile(np.arange(0, ges_length, stepsize), [0, 50, 100])
     xtick_aln = ['left', 'center', 'right']
     
@@ -344,6 +349,67 @@ def _format_xaxis_ges(ges_length:int, stepsize:int=1000, ax=None):
     ax.xaxis.set_tick_params(labelsize='x-small')
     
     return ax
+
+
+
+
+def _color_light_or_dark(rgba_in:np.ndarray)-> str:
+    """[For plotting purposes, we determine whether a color is light or dark and adjust its text color accordingly.
+    Also see https://stackoverflow.com/questions/22603510/is-this-possible-to-detect-a-colour-is-a-light-or-dark-colour]
+
+    Args:
+        rgba_in ([np.ndarray]): [A numpy array containing RGBA as returned by matplotlib colormaps]
+
+    Returns:
+        [str]: [A string: w for white or k for black]
+    """
+    r,g,b,_ = rgba_in*255
+    hsp = np.sqrt(0.299 * (r * r) + 0.587 * (g * g) + 0.114 * (b * b))
+    if (hsp>127.5):
+        # light color, return black for text
+        return 'k'
+    else:
+        # dark color, return white for text
+        return 'w'
+
+
+
+def _prepare_nes_colors(stats:pd.DataFrame,
+                        norm_kw: dict=None, 
+                        pcm_kw: dict=None):
+    
+    nes = stats['NES'].values
+    
+    if all(nes>=0):
+        norm_prop = {'vmin':0, 'vmax':np.max(nes)}
+        pcm_prop = {'cmap':'Reds', 'edgecolor':'.25', 'lw':.5}
+    elif all(nes<=0):
+        norm_prop = {'vmin':np.min(nes), 'vmax':0}
+        pcm_prop = {'cmap':'Blues_r', 'edgecolor':'.25', 'lw':.5}
+    else:
+        norm_prop = {'vmin':np.min(nes), 'vcenter':0, 'vmax':np.max(nes)}
+        pcm_prop = {'cmap':'PuOr_r', 'edgecolor':'.25', 'lw':.5}
+        
+    if norm_kw is not None:
+        norm_prop.update(norm_kw)
+            
+    if pcm_kw is not None:
+        pcm_prop.update(pcm_kw)        
+            
+    if all(nes>=0) | all(nes<=0):
+        norm = colors.Normalize(**norm_prop)
+    else:
+        norm = colors.TwoSlopeNorm(**norm_prop)
+       
+    norm_map = norm(nes)
+    cmap = plt.cm.get_cmap(pcm_prop.get('cmap'))
+    color_rgbas = cmap(norm_map)
+        
+        # Add color for NES text
+    stats['color'] = [_color_light_or_dark(rgba) for rgba in color_rgbas]
+    
+    return norm, pcm_prop  
+        
 
 ### Functions for leading edge plots
 from matplotlib.transforms import (Bbox, TransformedBbox, blended_transform_factory)

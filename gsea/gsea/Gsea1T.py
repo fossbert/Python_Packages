@@ -388,6 +388,7 @@ class Gsea1TMultSigs:
         if ordered:
             idx = self.stats['NES'].argsort().values
             self.stats = self.stats.take(idx, axis=0)
+            self.stats.reset_index(inplace=True, drop=True)
             self.gs_idx = self.gs_idx.take(idx, axis=0)
             
     
@@ -506,30 +507,14 @@ class Gsea1TMultSigs:
         # needs to be unnested
         evt_data = [arr for tup in self.gs_idx.values for arr in tup]
         
-        norm_prop = {'vcenter':0, 
-                    'vmin':np.min(df['NES'].values), 
-                    'vmax':np.max(df['NES'].values)}
-        
         evt_prop = {'linelengths':3/4, 'color':'.15', 'alpha':0.7, 'linewidths':0.5}
-        
-        pcm_prop = {'cmap':'PuOr_r', 'edgecolor':'.25', 'lw':.5}
+             
+        norm, pcm_prop = pl._prepare_nes_colors(df, norm_kw, pcm_kw)
         
         # Prettify FDR format
         df['FDR'] = df['FDR'].apply(pl._fdr_formatter)
                 
         # In this first bit, we determine the NES color scheme
-        if norm_kw is not None:
-            norm_prop.update(norm_kw)
-            
-        norm = mcolors.TwoSlopeNorm(**norm_prop)
-        norm_map = norm(df['NES'].values)
-        
-        # TODO: Pretty heuristically, maybe improve in the future
-        df['color'] = pd.cut(norm_map, 
-                             bins=[0, 0.15, 0.85, 1], 
-                             ordered=False,
-                             labels=['w','k','w'], 
-                             include_lowest=True)
         
         fig = plt.figure(figsize=figsize) 
         
@@ -547,7 +532,7 @@ class Gsea1TMultSigs:
         
         # Plot 1: Illustrate the ordered signature as a colorbar
         ax1 = fig.add_subplot(gs[0,0])
-        cb = fig.colorbar(ScalarMappable(cmap=coolwarm), 
+        cb = fig.colorbar(ScalarMappable(cmap=plt.cm.RdBu_r), 
              orientation='horizontal', ticks=[], cax=ax1)
         cb.outline.set_visible(False)
         ax1.text(0, 0.5, 'Low', color='w', ha='left', va='center', fontsize='x-small')
@@ -575,9 +560,7 @@ class Gsea1TMultSigs:
 
         # Plot 3: NES heatmap
         ax3 = fig.add_subplot(gs[1,1])
-        if pcm_kw is not None:
-            pcm_prop.update(pcm_kw)
-            
+    
         ax3.pcolormesh(df['NES'].values[:,np.newaxis], 
                norm=norm, **pcm_prop)
 
@@ -758,8 +741,9 @@ class Gsea1TMultSets:
         return df
                     
                     
-    def _filter_multset_stats(stats:pd.DataFrame, 
-                              d: dict): 
+    def _filter_multset_stats(self, 
+                              stats:pd.DataFrame, 
+                              subset: dict): 
         
         """Filter stat results if needed for plotting
 
@@ -767,32 +751,34 @@ class Gsea1TMultSets:
         ----------
         stats:pd.DataFrame :
             
-        d: dict :
+        subset: dict :
             
 
         Returns
         -------
 
         """
-        if not isinstance(d, dict):
+        if not isinstance(subset, dict):
             raise TypeError('Subset instructions need to be supplied as dictionary')
         
-        if not any([k in d for k in ['FDR', 'gene_sets', 'NES']]):
-            raise ValueError('Can only subset based on FDR or gene set names')
+        if not any([k in subset for k in ['FDR', 'gene_sets', 'NES']]):
+            raise ValueError('Can only subset based on FDR, NES or gene set names')
             
-        if 'gene_sets' in d:
-            df_sub = stats[stats['gene_set'].isin(d.get('gene_sets'))]
+        if 'gene_sets' in subset:
+            stats = stats[stats['gene_set'].isin(subset.get('gene_sets'))]
   
-        elif 'NES' in d:
-            df_sub = stats[stats['NES'].abs()>=d.get('NES', 2)]
+        elif 'NES' in subset:
+            stats = stats[stats['NES'].abs()>=subset.get('NES', 2)]
         
         else: # In the end, we will always filter based on FDR (even if you don't spell right)
-            df_sub = stats[stats['FDR']<=d.get('FDR', 0.1)]
+            stats = stats[stats['FDR']<=subset.get('FDR', 0.1)]
         
-        if not len(df_sub)>0:
+        if not len(stats)>0:
             raise AssertionError('None of the gene sets fullfilled the required cutoff')
-                
-        return df_sub
+        
+        stats.reset_index(inplace=True, drop=True)
+        
+        return stats
 
     def plot(self, 
              figsize: tuple = (3, 3),
@@ -861,30 +847,12 @@ class Gsea1TMultSets:
         # Some setup: 
         ges_prop = {'color':'.5', 'alpha':0.25, 'linewidth':0.1}
         evt_prop = {'color': '.15', 'alpha':0.7, 'linelengths':3/4, 'linewidths':0.5}         
-        norm_prop = {'vcenter':0, 
-                    'vmin':np.min(df['NES'].values), 
-                    'vmax':np.max(df['NES'].values)}
-        pcm_prop = {'cmap':'PuOr_r', 'edgecolor':'.25', 'lw':.5}
         
-        if norm_kw is not None:
-            norm_prop.update(norm_kw)
-             
-        norm = mcolors.TwoSlopeNorm(**norm_prop)
-        norm_map = norm(df['NES'].values)
-        
-        
-         # TODO: this works fairly well for now, but could be improved eventually
-        df['color'] = pd.cut(norm_map, 
-                             bins=[0, 0.15, 0.85, 1], 
-                             ordered=False,
-                             labels=['w','k','w'], 
-                             include_lowest=True)
-        
+        norm, pcm_prop = pl._prepare_nes_colors(df, norm_kw, pcm_kw)        
                     
         if subset is not None:
             df = self._filter_multset_stats(df, subset)
-            df.reset_index(inplace=True)
-        
+            
         if strip_gs_names:
             df['gene_set'] = df['gene_set'].str.replace('^[A-Z]+_', '', ).values         
                 
@@ -931,10 +899,7 @@ class Gsea1TMultSets:
 
         # Plot 3: NES heatmap            
         ax3 = fig.add_subplot(gs[1,1])
-        
-        if pcm_kw is not None:
-            pcm_prop.update(pcm_kw)
-        
+
         ax3.pcolormesh(df['NES'].values[:,np.newaxis], 
                     norm=norm, **pcm_prop)
     
