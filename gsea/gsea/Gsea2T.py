@@ -13,7 +13,7 @@ from pandas.core.frame import DataFrame
 
 # gene set enrichment and helpers
 from .aREA import aREA
-from ._aREA_utils import gene_sets_to_regulon, _prep_ges
+from .utils import gene_sets_to_regulon, _prep_ges
 from . import plotting as pl
 from .Gsea1T import Gsea1T, Gsea1TMultSigs, Gsea1TMultSets
 from scipy.stats import norm
