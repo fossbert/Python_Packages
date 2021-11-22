@@ -380,15 +380,20 @@ def _prepare_nes_colors(stats:pd.DataFrame,
     
     nes = stats['NES'].values
     
+    pcm_prop = {'edgecolor':'.25', 'lw':.5}
+    
     if all(nes>=0):
         norm_prop = {'vmin':0, 'vmax':np.max(nes)}
-        pcm_prop = {'cmap':'Reds', 'edgecolor':'.25', 'lw':.5}
+        pcm_prop.update({'cmap':'Reds'})
+        
     elif all(nes<=0):
         norm_prop = {'vmin':np.min(nes), 'vmax':0}
-        pcm_prop = {'cmap':'Blues_r', 'edgecolor':'.25', 'lw':.5}
+        pcm_prop.update({'cmap':'Blues_r'})
+        
     else:
         norm_prop = {'vmin':np.min(nes), 'vcenter':0, 'vmax':np.max(nes)}
-        pcm_prop = {'cmap':'PuOr_r', 'edgecolor':'.25', 'lw':.5}
+        pcm_prop.update({'cmap':'PuOr_r'})
+        
         
     if norm_kw is not None:
         norm_prop.update(norm_kw)

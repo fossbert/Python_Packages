@@ -1,21 +1,17 @@
 
 # As always
-from typing import Sequence, Union
 import numpy as np
 import pandas as pd
 
 # Lots of plotting here, so:
 from matplotlib import pyplot as plt
 from matplotlib.cm import ScalarMappable
-import matplotlib.colors as mcolors
-from matplotlib import ticker
-from pandas.core.frame import DataFrame
 
 # gene set enrichment and helpers
 from .aREA import aREA
 from .utils import gene_sets_to_regulon, _prep_ges
 from . import plotting as pl
-from .Gsea1T import Gsea1T, Gsea1TMultSigs, Gsea1TMultSets
+from .Gsea1T import Gsea1T, Gsea1TMultSigs
 from scipy.stats import norm
 from statsmodels.stats.multitest import multipletests
 
