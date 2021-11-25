@@ -64,21 +64,25 @@ class Viper:
         
     
     def _draw_dendrogram(self, 
-                         independent,
-                         dependent,
-                         dend_max,
+                         dendro,
                          type:str, 
                          ax=None):
         
         if ax is None:
             ax = plt.gca()
             
+        number_of_leaves = len(dendro['leaves'])
+        max_dependent_coord = max(map(max, dendro['dcoord']))
+            
         if type == 'row':
-            [ax.plot(yline, xline, c='k', lw=0.8) for xline, yline in zip(independent, dependent)]
-            ax.set_xlim(dend_max, 0)
+            
+            [ax.plot(yline, xline, c='k', lw=0.8) for xline, yline in zip(dendro['icoord'], dendro['dcoord'])]
+            ax.set_ylim(0, number_of_leaves * 10)
+            ax.set_xlim(max_dependent_coord, 0)
         elif type == 'col':
-            [ax.plot(xline, yline, c='k', lw=0.8) for xline, yline in zip(independent, dependent)]
-            ax.set_ylim(dend_max, 0)
+            [ax.plot(xline, yline, c='k', lw=0.8) for xline, yline in zip(dendro['icoord'], dendro['dcoord'])]
+            ax.set_xlim(0, number_of_leaves * 10)
+            ax.set_ylim(max_dependent_coord, 0)
         else:
             print(f'Do not know this option: {type}!')
         ax.axis('off')
@@ -138,44 +142,46 @@ class Viper:
             
             
         if cluster_cols:
-            zvar_col = hierarchy.linkage(ndata.T, method='complete', metric='correlation')
-            dn_col = hierarchy.dendrogram(zvar_col, labels=ndata.columns, orientation='bottom', no_plot=True)
-            dn_max_col = np.max([y for x in dn_col['dcoord'] for y in x])  * 1.02
-        
+            zvar_col = hierarchy.linkage(ndata.T, method='complete', metric='euclidean')
+            dn_col = hierarchy.dendrogram(zvar_col, labels=ndata.columns, orientation='bottom', no_plot=True)   
         
         if cluster_rows:         
-            zvar_row = hierarchy.linkage(ndata, method='complete', metric='correlation')
+            zvar_row = hierarchy.linkage(ndata, method='complete', metric='euclidean')
             dn_row = hierarchy.dendrogram(zvar_row, labels=ndata.index, orientation='left', no_plot=True)
-            dn_max_row = np.max([y for x in dn_row['dcoord'] for y in x])  * 1.02 
-            
-            
+           
         if cluster_rows and cluster_cols:
              
             if figsize is None:
                 
-                height = nrows * 0.15
+                height = nrows * 0.2
                 width = ncols * 0.3
                 figsize = (width, height)
                 
                 # carve out a fixed number of inches for dendrograms 0.15 translates to roughly 0.38 cm. 
                 dendro_col_height = 0.15
                 height_rest = figsize[1]-dendro_col_height
+                hspace = 0.5/nrows
                 
                 dendro_row_width = 0.15
                 width_rest = figsize[0]-dendro_row_width
+                wspace = 0.1/ncols
+               
                 
             fig = plt.figure(figsize=figsize)
             
-            gs = fig.add_gridspec(nrows=2, ncols=2, width_ratios=[dendro_row_width,width_rest], wspace=0.02, 
-                                  height_ratios=[height_rest, dendro_col_height], hspace=0.01)
+            gs = fig.add_gridspec(nrows=2, ncols=2, 
+                                  width_ratios=[dendro_row_width,width_rest], wspace=wspace, 
+                                  height_ratios=[height_rest, dendro_col_height], hspace=hspace)
             
             # Draw row dendrogram
             ax_row_dn = fig.add_subplot(gs[0,0])
-            self._draw_dendrogram(dn_row['icoord'], dn_row['dcoord'], dn_max_row, type='row', ax=ax_row_dn)
-        
+            self._draw_dendrogram(dn_row, type='row', ax=ax_row_dn)
+            # TODO: FIX DENDROGRAM ADJUSTMENTS
+            ax_row_dn.set_ylim(0, len(dn_row['leaves']) * 10)
+            
             # Draw heatmap
             # reorder data
-            ndata = ndata.loc[dn_row['ivl'], dn_col['ivl']]
+            ndata = ndata.iloc[dn_row['leaves'], dn_col['leaves']]
             
             ax_mesh = fig.add_subplot(gs[0,1])
             mesh = ax_mesh.pcolormesh(ndata.values, **pcm_prop)
@@ -198,15 +204,17 @@ class Viper:
                                     ha="left", rotation=45, rotation_mode='anchor')
                                     
             # TODO: colorbar adjustments
-            cbar_height = 0.02 * 50/nrows if show_row_labels else 0.08 * 50/nrows
-            cbar_width = 0.4 * 5/ncols if show_row_labels else 0.15 * 5/ncols
+            cbar_height = 0.02 * 50/nrows if show_row_labels else 0.1 * 50/nrows
+            cbar_width = 0.4 * 5/ncols if show_row_labels else 0.12 * 5/ncols
+            cbar_ypos = -0.03 * 50/nrows if show_row_labels else 0.4
+            cbar_xpos = 1.02 * 5/ncols if show_row_labels else 1.05
             if show_row_labels:
-                cax = ax_mesh.inset_axes([1.02, -0.03, cbar_width, cbar_height], transform=ax_mesh.transAxes)
+                cax = ax_mesh.inset_axes([cbar_xpos, cbar_ypos, cbar_width, cbar_height], transform=ax_mesh.transAxes)
                 cb = plt.colorbar(mesh, ax=ax_mesh, cax=cax, orientation='horizontal')
                 cb.ax.annotate(text='NES', xy=(1.02, 0.25), xycoords='axes fraction', fontsize='x-small')
                 #cb.ax.xaxis.set_ticks_position('bottom')
             else:
-                cax = ax_mesh.inset_axes([1.05, 0.4, cbar_height, cbar_width], transform=ax_mesh.transAxes)
+                cax = ax_mesh.inset_axes([cbar_xpos, cbar_ypos, cbar_width, cbar_height], transform=ax_mesh.transAxes)
                 cb = plt.colorbar(mesh, ax=ax_mesh, cax=cax, orientation='vertical')
                 cb.ax.annotate(text='NES', xy=(0.5, -0.05), xycoords='axes fraction', ha='center', 
                                va='top', fontsize='x-small')
@@ -218,7 +226,7 @@ class Viper:
                 self._add_numbers(mesh, ndata, number_fmt, number_kw, ax_mesh)
                       
             ax_col_dn = fig.add_subplot(gs[1,1])
-            self._draw_dendrogram(dn_col['icoord'], dn_col['dcoord'], dn_max_col, type='col', ax=ax_col_dn)
+            self._draw_dendrogram(dn_col, type='col', ax=ax_col_dn)
         
         elif cluster_rows:
             
@@ -239,7 +247,7 @@ class Viper:
             # Draw row dendrogram
             ax_row_dn = fig.add_subplot(gs[0,0])
             
-            self._draw_dendrogram(dn_row['icoord'], dn_row['dcoord'], dn_max_row, type='row', ax=ax_row_dn)
+            self._draw_dendrogram(dn_row, type='row', ax=ax_row_dn)
         
             # Draw heatmap
             # reorder data
@@ -339,7 +347,7 @@ class Viper:
                 self._add_numbers(mesh, ndata, number_fmt, number_kw, ax_mesh)
                       
             ax_col_dn = fig.add_subplot(gs[1])
-            self._draw_dendrogram(dn_col['icoord'], dn_col['dcoord'], dn_max_col, type='col', ax=ax_col_dn)
+            self._draw_dendrogram(dn_col, type='col', ax=ax_col_dn)
         
         else:
             if figsize is None:
