@@ -2,9 +2,6 @@
 The gsea package provides classes and functions for gene set enrichment analysis.
 """
 
-import pkgutil
-PACKAGEDIR = pkgutil.get_data('gsea')
-
 from .Gsea1T import Gsea1T, Gsea1TMultSets, Gsea1TMultSigs
 from .Gsea2T import Gsea2T, GseaReg, GseaRegMultSigs, GseaMultReg
 from .Viper import Viper
