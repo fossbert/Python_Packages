@@ -76,9 +76,11 @@ class Viper:
         if type == 'row':
             [ax.plot(yline, xline, c='k', lw=0.8) for xline, yline in zip(independent, dependent)]
             ax.set_xlim(dend_max, 0)
-        else:
+        elif type == 'col':
             [ax.plot(xline, yline, c='k', lw=0.8) for xline, yline in zip(independent, dependent)]
             ax.set_ylim(dend_max, 0)
+        else:
+            print(f'Do not know this option: {type}!')
         ax.axis('off')
         
     def _add_numbers(self, 
