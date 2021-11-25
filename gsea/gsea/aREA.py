@@ -16,9 +16,7 @@ def aREA(dset: Union[pd.DataFrame, pd.Series],
 
     Parameters
     ----------
-    dset: Union[pd.DataFrame :
-        
-    pd.Series] :
+    dset: Union[pd.DataFrame, pd.Series] :
         
     regulon: pd.DataFrame :
         
