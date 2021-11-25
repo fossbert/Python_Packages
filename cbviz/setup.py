@@ -1,15 +1,13 @@
 # Import required functions
 from setuptools import setup, find_packages
 # Call setup function
+
 setup(
     author="H. Carlo Maurer",
-    description="Gene set enrichment functionality",
-    name="gsea",
+    description="Vizualisation tools",
+    name="cbviz",
     version="0.1.0",
-    packages=find_packages('gsea'),
-    package_dir={'gsea': 'gsea'},
-    include_package_data=True,
-    package_data={'gsea': ['data/*.json']},
+    packages=find_packages('cbviz'),
     install_requires=['pandas>=1.3.1', 
     'scipy>=1.6.2',
     'numpy>=1.20.3', 

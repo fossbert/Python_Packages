@@ -2,6 +2,13 @@ import numpy as np
 import pandas as pd
 from typing import Union
 
+# file system and import
+import os
+import glob
+import json
+
+
+
 """Helper functions used throughout the package"""
 
 def gene_sets_to_regulon(genesets: dict, 
@@ -104,3 +111,45 @@ def _prep_ges(ges: Union[pd.Series,pd.DataFrame],
                  
     return ges
     
+  
+  
+def load_genesets(collection: str = 'h', 
+                  species: str = 'human'):
+  
+  DIR = os.path.dirname(os.path.realpath(__file__))
+  
+  coptions = ['h', 'pid', 'wikipathways', 'reactome']
+    
+  if collection.lower() not in coptions:
+    raise ValueError(f"{collection} is not a suitable option. Please choose from {', '.join(coptions)}.")
+  
+  soptions =  ['human', 'mouse']
+  
+  if species.lower() not in soptions:
+    raise ValueError(f"{species} is not a suitable option. Please choose from {', '.join(soptions)}.")
+  
+  if collection == 'h':
+    gpattern = f"{collection}*{species}*"
+  else:
+    gpattern = f"*{collection}*{species}*"
+  
+  fps = glob.glob(os.path.join(DIR, 'data', gpattern))
+  print(f"Found {len(fps)} gene set collection(s)!")
+  
+  fp = fps[0]  
+  bn = os.path.basename(fp)
+    
+  try:
+    with open(fp) as infile:
+      genesets_in = json.load(infile)
+    
+    print(f"Loaded {bn} into a dictionary for you.")
+    return genesets_in
+  except:
+    raise ImportError(f'Something went wrong when trying to import {fp}')
+      
+    
+
+  
+  
+      
