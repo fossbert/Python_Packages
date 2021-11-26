@@ -10,13 +10,13 @@ import pandas as pd
 # Plotting utils
 from matplotlib import pyplot as plt
 from . import plotting as pl
+from matplotlib.colors import CenteredNorm
 
 # gene set enrichment and helpers
 from .aREA import aREA
 from .utils import gene_sets_to_regulon, _prep_ges
 
 # Stats
-from statsmodels.stats.multitest import multipletests
 from scipy.cluster import hierarchy
 from scipy.spatial import distance
 
@@ -119,11 +119,13 @@ class Viper:
             cluster_rows: bool = False,
             cluster_cols: bool = False,
             show_row_labels:bool=False,
+            show_col_labels: bool=True,
             show_numbers:bool = False,
             number_fmt:str = '1.1f',
             figsize: tuple=None,
             number_kw:dict = None,
-            pcm_kw:dict = None):
+            pcm_kw:dict = None,
+            norm_kw:dict = None):
         
         ndata = self.nes.copy()
         nrows, ncols = ndata.shape
@@ -140,6 +142,11 @@ class Viper:
         if pcm_kw is not None:
             pcm_prop.update(pcm_kw)
             
+        norm_prop = {'vcenter':0}
+        if norm_kw is not None:
+            norm_prop.update(norm_kw)
+            
+        norm = CenteredNorm(**norm_prop)
             
         if cluster_cols:
             zvar_col = hierarchy.linkage(ndata.T, method='complete', metric='euclidean')
@@ -149,29 +156,26 @@ class Viper:
             zvar_row = hierarchy.linkage(ndata, method='complete', metric='euclidean')
             dn_row = hierarchy.dendrogram(zvar_row, labels=ndata.index, orientation='left', no_plot=True)
            
-        if cluster_rows and cluster_cols:
-             
+        if cluster_rows and cluster_cols:            
             if figsize is None:
-                
                 height = nrows * 0.2
                 width = ncols * 0.3
-                figsize = (width, height)
-                
-                # carve out a fixed number of inches for dendrograms 0.15 translates to roughly 0.38 cm. 
-                dendro_col_height = 0.15
-                height_rest = figsize[1]-dendro_col_height
-                hspace = 0.5/nrows
-                
-                dendro_row_width = 0.15
-                width_rest = figsize[0]-dendro_row_width
-                wspace = 0.1/ncols
-               
-                
-            fig = plt.figure(figsize=figsize)
+            else:
+                width, height = figsize
             
-            gs = fig.add_gridspec(nrows=2, ncols=2, 
-                                  width_ratios=[dendro_row_width,width_rest], wspace=wspace, 
-                                  height_ratios=[height_rest, dendro_col_height], hspace=hspace)
+            dendro_size_row = 0.15
+            dendro_size_col = 0.3
+            cbar_height = 0.3
+            height_rest = height-dendro_size_col-cbar_height
+            hspace = 0.15/height
+            width_rest = width-dendro_size_row
+            wspace = 0.15/width             
+                
+            fig = plt.figure(figsize=(width, height), dpi=150)
+            
+            gs = fig.add_gridspec(nrows=3, ncols=2, 
+                                  width_ratios=[dendro_size_row,width_rest], wspace=wspace, 
+                                  height_ratios=[height_rest, dendro_size_col, cbar_height], hspace=hspace)
             
             # Draw row dendrogram
             ax_row_dn = fig.add_subplot(gs[0,0])
@@ -184,7 +188,7 @@ class Viper:
             ndata = ndata.iloc[dn_row['leaves'], dn_col['leaves']]
             
             ax_mesh = fig.add_subplot(gs[0,1])
-            mesh = ax_mesh.pcolormesh(ndata.values, **pcm_prop)
+            mesh = ax_mesh.pcolormesh(ndata.values, norm=norm, **pcm_prop)
         
             if show_row_labels:
                 ax_mesh.set_yticks(np.arange(nrows) + 0.5)
@@ -196,64 +200,55 @@ class Viper:
                 ax_mesh.set_yticks([])
             ax_mesh.set_ylabel('') 
             
-            
-            ax_mesh.set_xticks(np.arange(ncols) + 0.5)
-            ax_mesh.xaxis.tick_top()
-            ax_mesh.xaxis.set_label_position('top')       
-            ax_mesh.set_xticklabels(ndata.columns, fontsize='x-small', 
+            if show_col_labels:
+                ax_mesh.set_xticks(np.arange(ncols) + 0.5)
+                ax_mesh.xaxis.tick_top()
+                ax_mesh.xaxis.set_label_position('top')       
+                ax_mesh.set_xticklabels(ndata.columns, fontsize='x-small', 
                                     ha="left", rotation=45, rotation_mode='anchor')
-                                    
-            # TODO: colorbar adjustments
-            cbar_height = 0.02 * 50/nrows if show_row_labels else 0.1 * 50/nrows
-            cbar_width = 0.4 * 5/ncols if show_row_labels else 0.12 * 5/ncols
-            cbar_ypos = -0.03 * 50/nrows if show_row_labels else 0.4
-            cbar_xpos = 1.02 * 5/ncols if show_row_labels else 1.05
-            if show_row_labels:
-                cax = ax_mesh.inset_axes([cbar_xpos, cbar_ypos, cbar_width, cbar_height], transform=ax_mesh.transAxes)
-                cb = plt.colorbar(mesh, ax=ax_mesh, cax=cax, orientation='horizontal')
-                cb.ax.annotate(text='NES', xy=(1.02, 0.25), xycoords='axes fraction', fontsize='x-small')
-                #cb.ax.xaxis.set_ticks_position('bottom')
-            else:
-                cax = ax_mesh.inset_axes([cbar_xpos, cbar_ypos, cbar_width, cbar_height], transform=ax_mesh.transAxes)
-                cb = plt.colorbar(mesh, ax=ax_mesh, cax=cax, orientation='vertical')
-                cb.ax.annotate(text='NES', xy=(0.5, -0.05), xycoords='axes fraction', ha='center', 
-                               va='top', fontsize='x-small')
-                #cb.ax.xaxis.set_ticks_position('right')
-            cb.outline.set_visible(False)
-            cb.ax.tick_params(labelsize='xx-small')
+            else: 
+                ax_mesh.set_xticks([])
 
             if show_numbers:
                 self._add_numbers(mesh, ndata, number_fmt, number_kw, ax_mesh)
                       
             ax_col_dn = fig.add_subplot(gs[1,1])
             self._draw_dendrogram(dn_col, type='col', ax=ax_col_dn)
+            
+            ax_cbar = fig.add_subplot(gs[2, 1])
+            ax_cbar.axis('off')
+            # TODO: colorbar adjustments
+            cb = fig.colorbar(mesh, ax=ax_cbar, fraction=0.8, orientation='horizontal', shrink=0.8, aspect=10)
+            # cb.outline.set_visible(False)
+            cb.ax.tick_params(labelsize='xx-small')
+          
         
         elif cluster_rows:
             
             if figsize is None:
-                
-                height = nrows * 0.15
+                height = nrows * 0.2
                 width = ncols * 0.3
-                figsize = (width, height)  
-                dendro_row_width = 0.15
-                width_rest = figsize[0]-dendro_row_width
+            else:
+                width, height = figsize
+            
+            dendro_size_row = 0.15
+            cbar_height = 0.3
+            height_rest = height-cbar_height
+            hspace = 0.15/height
+            width_rest = width-dendro_size_row
+            wspace = 0.15/width   
                 
-            fig = plt.figure(figsize=figsize)
+            fig = plt.figure(figsize=(width, height), dpi=150)
             
-            gs = fig.add_gridspec(nrows=1, ncols=2, 
-                                  width_ratios=[dendro_row_width,width_rest], 
-                                  wspace=0.02)
-            
-            # Draw row dendrogram
-            ax_row_dn = fig.add_subplot(gs[0,0])
-            
-            self._draw_dendrogram(dn_row, type='row', ax=ax_row_dn)
-        
-            # Draw heatmap
+            gs = fig.add_gridspec(nrows=2, ncols=2, 
+                                  width_ratios=[dendro_size_row, width_rest], 
+                                  wspace=wspace,
+                                  height_ratios=[cbar_height, height_rest],
+                                  hspace=hspace)
+          
             # reorder data
-            ndata = ndata.loc[dn_row['ivl']]
-            
-            ax_mesh = fig.add_subplot(gs[0,1])
+            ndata = ndata.iloc[dn_row['leaves']]
+            ax_mesh = fig.add_subplot(gs[1,1])
             mesh = ax_mesh.pcolormesh(ndata.values, **pcm_prop)
         
             if show_row_labels:
@@ -266,44 +261,51 @@ class Viper:
                 ax_mesh.set_yticks([])
             ax_mesh.set_ylabel('') 
             
-            ax_mesh.set_xticks(np.arange(ncols) + 0.5)      
-            ax_mesh.set_xticklabels(ndata.columns, fontsize='x-small', 
-                                    ha="right", rotation=45, rotation_mode='anchor')
-                                    
-            # TODO: colorbar adjustments
-            cbar_height = 0.02 * 50/nrows 
-            cbar_width = 0.4 * 5/ncols
-            cax = ax_mesh.inset_axes([0.04, 1.01, cbar_width, cbar_height], transform=ax_mesh.transAxes)
-            cb = plt.colorbar(mesh, ax=ax_mesh, cax=cax, orientation='horizontal')
-            cb.ax.annotate(text='NES', xy=(1.02, 0.25), xycoords='axes fraction', ha='left', fontsize='x-small')
-            cb.ax.xaxis.set_ticks_position('top')
-            cb.outline.set_visible(False)
-            cb.ax.tick_params(labelsize='xx-small')
-           
+            if show_col_labels:      
+                ax_mesh.set_xticks(np.arange(ncols) + 0.5)      
+                ax_mesh.set_xticklabels(ndata.columns, fontsize='x-small', 
+                                        ha="right", rotation=45, rotation_mode='anchor')
+            else:
+                ax_mesh.set_xticks([])
+                                               
             if show_numbers:
                 self._add_numbers(mesh, ndata, number_fmt, number_kw, ax_mesh)
+                
+            ax_cbar = fig.add_subplot(gs[0, 1])
+            ax_cbar.axis('off')
+            # TODO: colorbar adjustments
+            cb = fig.colorbar(mesh, ax=ax_cbar, fraction=0.8, orientation='horizontal', shrink=0.8, aspect=10)
+            # cb.outline.set_visible(False)
+            cb.ax.tick_params(labelsize='xx-small')
+            
+                # Draw row dendrogram
+            ax_row_dn = fig.add_subplot(gs[1,0])
+            
+            self._draw_dendrogram(dn_row, type='row', ax=ax_row_dn)
+        
                      
         elif cluster_cols:
             
             if figsize is None:
-                
-                height = nrows * 0.15
+                height = nrows * 0.2
                 width = ncols * 0.3
-                figsize = (width, height)
-                
-                # carve out a fixed number of inches for dendrograms 0.15 translates to roughly 0.38 cm. 
-                dendro_col_height = 0.15
-                height_rest = figsize[1]-dendro_col_height
-                
-            fig = plt.figure(figsize=figsize)
+            else:
+                width, height = figsize
             
-            gs = fig.add_gridspec(nrows=2, ncols=1, 
-                                  height_ratios=[height_rest, dendro_col_height], 
-                                  hspace=0.01)
+            dendro_size_col = 0.3
+            cbar_height = 0.3
+            height_rest = height-dendro_size_col-cbar_height
+            hspace = 0.15/height
+                
+            fig = plt.figure(figsize=(width, height), dpi=150)
+            
+            gs = fig.add_gridspec(nrows=3, ncols=1, 
+                                  height_ratios=[height_rest, dendro_size_col, cbar_height], 
+                                  hspace=hspace)
             
             # Draw heatmap
             # reorder data
-            ndata = ndata[dn_col['ivl']]
+            ndata = ndata.iloc[:,dn_col['leaves']]
             
             ax_mesh = fig.add_subplot(gs[0])
             mesh = ax_mesh.pcolormesh(ndata.values, **pcm_prop)
@@ -316,75 +318,75 @@ class Viper:
                 ax_mesh.yaxis.tick_right()
             else:
                 ax_mesh.set_yticks([])
-            ax_mesh.set_ylabel('') 
-            
-            
-            ax_mesh.set_xticks(np.arange(ncols) + 0.5)
-            ax_mesh.xaxis.tick_top()
-            ax_mesh.xaxis.set_label_position('top')       
-            ax_mesh.set_xticklabels(ndata.columns, fontsize='x-small', 
-                                    ha="left", rotation=45, rotation_mode='anchor')
-       
-                                    
-            # TODO: colorbar adjustments
-            cbar_height = 0.02 * 50/nrows if show_row_labels else 0.08 * 50/nrows
-            cbar_width = 0.4 * 5/ncols if show_row_labels else 0.15 * 5/ncols
-            if show_row_labels:
-                cax = ax_mesh.inset_axes([1.02, -0.03, cbar_width, cbar_height], transform=ax_mesh.transAxes)
-                cb = plt.colorbar(mesh, ax=ax_mesh, cax=cax, orientation='horizontal')
-                cb.ax.annotate(text='NES', xy=(1.02, 0.25), xycoords='axes fraction', fontsize='x-small')
-                #cb.ax.xaxis.set_ticks_position('bottom')
+                      
+            if show_col_labels:      
+                ax_mesh.set_xticks(np.arange(ncols) + 0.5)
+                ax_mesh.xaxis.tick_top()
+                ax_mesh.xaxis.set_label_position('top')       
+                ax_mesh.set_xticklabels(ndata.columns, fontsize='x-small', 
+                                        ha="left", rotation=45, rotation_mode='anchor')
             else:
-                cax = ax_mesh.inset_axes([1.05, 0.4, cbar_height, cbar_width], transform=ax_mesh.transAxes)
-                cb = plt.colorbar(mesh, ax=ax_mesh, cax=cax, orientation='vertical')
-                cb.ax.annotate(text='NES', xy=(0.5, -0.05), xycoords='axes fraction', ha='center', 
-                               va='top', fontsize='x-small')
-                #cb.ax.xaxis.set_ticks_position('right')
-            cb.outline.set_visible(False)
-            cb.ax.tick_params(labelsize='xx-small')
-           
+                ax_mesh.set_xticks([])
+       
             if show_numbers:
                 self._add_numbers(mesh, ndata, number_fmt, number_kw, ax_mesh)
                       
             ax_col_dn = fig.add_subplot(gs[1])
             self._draw_dendrogram(dn_col, type='col', ax=ax_col_dn)
+            
+            ax_cbar = fig.add_subplot(gs[2])
+            ax_cbar.axis('off')
+            # TODO: colorbar adjustments
+            cb = fig.colorbar(mesh, ax=ax_cbar, fraction=0.8, orientation='horizontal', shrink=0.8, aspect=10)
+            # cb.outline.set_visible(False)
+            cb.ax.tick_params(labelsize='xx-small')
         
         else:
             if figsize is None:
-                height = nrows * 0.15
+                height = nrows * 0.2
                 width = ncols * 0.3
-                figsize = (width, height)
+            else:
+                width, height = figsize
+        
+            cbar_height = 0.3
+            height_rest = height-cbar_height
+            hspace = 0.15/height
+                
+            fig = plt.figure(figsize=(width, height), dpi=150)
             
-            fig, ax = plt.subplots(figsize=figsize)
+            gs = fig.add_gridspec(nrows=2, ncols=1, 
+                                  height_ratios=[cbar_height, height_rest], 
+                                  hspace=hspace)
             # Draw heatmap
-            mesh = ax.pcolormesh(ndata.values, **pcm_prop)
+            
+            ax_mesh = fig.add_subplot(gs[1])
+            mesh = ax_mesh.pcolormesh(ndata.values, **pcm_prop)
              
             if show_row_labels:
-                ax.set_yticks(np.arange(nrows) + 0.5)
+                ax_mesh.set_yticks(np.arange(nrows) + 0.5)
                 # TODO: Add more flexibility here: trimming names
-                ax.set_yticklabels(ndata.index.str.split('_', n=1).str[-1], fontsize='x-small')
-                ax.yaxis.set_label_position('right')
-                ax.yaxis.tick_right()
+                ax_mesh.set_yticklabels(ndata.index.str.split('_', n=1).str[-1], fontsize='x-small')
+                ax_mesh.yaxis.set_label_position('right')
+                ax_mesh.yaxis.tick_right()
             else:
-                ax.set_yticks([])
+                ax_mesh.set_yticks([])
             
-            ax.set_xticks(np.arange(ncols) + 0.5)
-            ax.set_xticklabels(ndata.columns, fontsize='x-small', 
+            if show_col_labels:
+                ax_mesh.set_xticks(np.arange(ncols) + 0.5)
+                ax_mesh.set_xticklabels(ndata.columns, fontsize='x-small', 
                                 ha="right", rotation=45, rotation_mode='anchor')
-            ax.set_ylabel('') 
-                                    
-            # TODO: colorbar adjustments
-            cbar_height = 0.02 * 50/nrows 
-            cbar_width = 0.4 * 5/ncols
-            cax = ax.inset_axes([0.04, 1.01, cbar_width, cbar_height], transform=ax.transAxes)
-            cb = plt.colorbar(mesh, ax=ax, cax=cax, orientation='horizontal')
-            cb.ax.annotate(text='NES', xy=(1.02, 0.25), xycoords='axes fraction', ha='left', fontsize='x-small')
-            cb.ax.xaxis.set_ticks_position('top')
-            cb.outline.set_visible(False)
-            cb.ax.tick_params(labelsize='xx-small')
-
+            else:
+                ax_mesh.set_xticks([])
+                                
             if show_numbers:
-                self._add_numbers(mesh, ndata, number_fmt, number_kw, ax)
+                self._add_numbers(mesh, ndata, number_fmt, number_kw, ax_mesh)
+                
+            ax_cbar = fig.add_subplot(gs[0])
+            ax_cbar.axis('off')
+            # TODO: colorbar adjustments
+            cb = fig.colorbar(mesh, ax=ax_cbar, fraction=0.8, orientation='horizontal', shrink=0.8, aspect=10)
+            # cb.outline.set_visible(False)
+            cb.ax.tick_params(labelsize='xx-small')
                 
         return fig
                     
