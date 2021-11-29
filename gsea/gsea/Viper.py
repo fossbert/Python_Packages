@@ -68,21 +68,22 @@ class Viper:
                          type:str, 
                          ax=None):
         
-        if ax is None:
+        if not ax:
             ax = plt.gca()
             
         number_of_leaves = len(dendro['leaves'])
         max_dependent_coord = max(map(max, dendro['dcoord']))
             
         if type == 'row':
-            
             [ax.plot(yline, xline, c='k', lw=0.8) for xline, yline in zip(dendro['icoord'], dendro['dcoord'])]
             ax.set_ylim(0, number_of_leaves * 10)
             ax.set_xlim(max_dependent_coord, 0)
+            
         elif type == 'col':
             [ax.plot(xline, yline, c='k', lw=0.8) for xline, yline in zip(dendro['icoord'], dendro['dcoord'])]
             ax.set_xlim(0, number_of_leaves * 10)
             ax.set_ylim(max_dependent_coord, 0)
+            
         else:
             print(f'Do not know this option: {type}!')
         ax.axis('off')
@@ -94,7 +95,7 @@ class Viper:
                      number_kw:dict,
                      ax=None):
         
-        if ax is None:
+        if not ax:
             ax = plt.gca()
             
         mesh.update_scalarmappable()
@@ -103,8 +104,8 @@ class Viper:
         
         number_prop = {'ha':"center", 'va':"center", 'fontsize':'xx-small'}
         
-        if number_kw is not None:
-            number_prop(number_kw)
+        if number_kw:
+            number_prop.update(number_kw)
         
         for x, y, rgba_in, val in zip(xpos.flat, 
                                       ypos.flat, 
@@ -125,7 +126,8 @@ class Viper:
             figsize: tuple=None,
             number_kw:dict = None,
             pcm_kw:dict = None,
-            norm_kw:dict = None):
+            norm_kw:dict = None,
+            cbar_kw:dict=None):
         
         ndata = self.nes.copy()
         nrows, ncols = ndata.shape
@@ -139,12 +141,16 @@ class Viper:
             cluster_cols = False 
           
         pcm_prop = {'cmap':plt.cm.RdBu_r, 'edgecolors':'k', 'linewidths':0.15}
-        if pcm_kw is not None:
+        if pcm_kw:
             pcm_prop.update(pcm_kw)
             
         norm_prop = {'vcenter':0}
-        if norm_kw is not None:
+        if norm_kw:
             norm_prop.update(norm_kw)
+            
+        cbar_prop = {'fraction':0.8, 'orientation':'horizontal', 'shrink':0.8, 'aspect':10}
+        if cbar_kw:
+            cbar_prop.update(cbar_kw)
             
         norm = CenteredNorm(**norm_prop)
             
@@ -155,14 +161,15 @@ class Viper:
         if cluster_rows:         
             zvar_row = hierarchy.linkage(ndata, method='complete', metric='euclidean')
             dn_row = hierarchy.dendrogram(zvar_row, labels=ndata.index, orientation='left', no_plot=True)
-           
-        if cluster_rows and cluster_cols:            
-            if figsize is None:
-                height = nrows * 0.2
-                width = ncols * 0.3
-            else:
-                width, height = figsize
             
+        if figsize:
+            width, height = figsize
+            
+        else:
+            height = nrows * 0.2
+            width = ncols * 0.3
+           
+        if cluster_rows and cluster_cols:     
             dendro_size_row = 0.15
             dendro_size_col = 0.3
             cbar_height = 0.3
@@ -171,7 +178,7 @@ class Viper:
             width_rest = width-dendro_size_row
             wspace = 0.15/width             
                 
-            fig = plt.figure(figsize=(width, height), dpi=150)
+            fig = plt.figure(figsize=(width, height), dpi=150) # setting dpi specifically due to issues with colorbar outline
             
             gs = fig.add_gridspec(nrows=3, ncols=2, 
                                   width_ratios=[dendro_size_row,width_rest], wspace=wspace, 
@@ -180,8 +187,6 @@ class Viper:
             # Draw row dendrogram
             ax_row_dn = fig.add_subplot(gs[0,0])
             self._draw_dendrogram(dn_row, type='row', ax=ax_row_dn)
-            # TODO: FIX DENDROGRAM ADJUSTMENTS
-            ax_row_dn.set_ylim(0, len(dn_row['leaves']) * 10)
             
             # Draw heatmap
             # reorder data
@@ -211,40 +216,33 @@ class Viper:
 
             if show_numbers:
                 self._add_numbers(mesh, ndata, number_fmt, number_kw, ax_mesh)
-                      
+            
+            # draw column dendrogram          
             ax_col_dn = fig.add_subplot(gs[1,1])
             self._draw_dendrogram(dn_col, type='col', ax=ax_col_dn)
             
+            # draw colorbar on its own axis
             ax_cbar = fig.add_subplot(gs[2, 1])
             ax_cbar.axis('off')
-            # TODO: colorbar adjustments
-            cb = fig.colorbar(mesh, ax=ax_cbar, fraction=0.8, orientation='horizontal', shrink=0.8, aspect=10)
+            cb = fig.colorbar(mesh, ax=ax_cbar, **cbar_prop)
             # cb.outline.set_visible(False)
             cb.ax.tick_params(labelsize='xx-small')
           
         
-        elif cluster_rows:
-            
-            if figsize is None:
-                height = nrows * 0.2
-                width = ncols * 0.3
-            else:
-                width, height = figsize
+        elif cluster_rows:  
             
             dendro_size_row = 0.15
             cbar_height = 0.3
             height_rest = height-cbar_height
-            hspace = 0.15/height
+            hspace = 0.1/height
             width_rest = width-dendro_size_row
-            wspace = 0.15/width   
+            wspace = 0.1/width   
                 
             fig = plt.figure(figsize=(width, height), dpi=150)
             
             gs = fig.add_gridspec(nrows=2, ncols=2, 
-                                  width_ratios=[dendro_size_row, width_rest], 
-                                  wspace=wspace,
-                                  height_ratios=[cbar_height, height_rest],
-                                  hspace=hspace)
+                                  width_ratios=[dendro_size_row, width_rest], wspace=wspace,
+                                  height_ratios=[cbar_height, height_rest], hspace=hspace)
           
             # reorder data
             ndata = ndata.iloc[dn_row['leaves']]
@@ -270,28 +268,22 @@ class Viper:
                                                
             if show_numbers:
                 self._add_numbers(mesh, ndata, number_fmt, number_kw, ax_mesh)
-                
+            
+            # draw colorbar on top
             ax_cbar = fig.add_subplot(gs[0, 1])
             ax_cbar.axis('off')
             # TODO: colorbar adjustments
-            cb = fig.colorbar(mesh, ax=ax_cbar, fraction=0.8, orientation='horizontal', shrink=0.8, aspect=10)
-            # cb.outline.set_visible(False)
+            cb = fig.colorbar(mesh, ax=ax_cbar, **cbar_prop)
             cb.ax.tick_params(labelsize='xx-small')
+            cb.ax.xaxis.set_label_position('top')
+            cb.ax.xaxis.tick_top()
             
-                # Draw row dendrogram
+            # Draw row dendrogram
             ax_row_dn = fig.add_subplot(gs[1,0])
-            
             self._draw_dendrogram(dn_row, type='row', ax=ax_row_dn)
         
                      
         elif cluster_cols:
-            
-            if figsize is None:
-                height = nrows * 0.2
-                width = ncols * 0.3
-            else:
-                width, height = figsize
-            
             dendro_size_col = 0.3
             cbar_height = 0.3
             height_rest = height-dendro_size_col-cbar_height
@@ -337,17 +329,11 @@ class Viper:
             ax_cbar = fig.add_subplot(gs[2])
             ax_cbar.axis('off')
             # TODO: colorbar adjustments
-            cb = fig.colorbar(mesh, ax=ax_cbar, fraction=0.8, orientation='horizontal', shrink=0.8, aspect=10)
+            cb = fig.colorbar(mesh, ax=ax_cbar, **cbar_prop)
             # cb.outline.set_visible(False)
             cb.ax.tick_params(labelsize='xx-small')
         
-        else:
-            if figsize is None:
-                height = nrows * 0.2
-                width = ncols * 0.3
-            else:
-                width, height = figsize
-        
+        else:      
             cbar_height = 0.3
             height_rest = height-cbar_height
             hspace = 0.15/height
@@ -384,7 +370,7 @@ class Viper:
             ax_cbar = fig.add_subplot(gs[0])
             ax_cbar.axis('off')
             # TODO: colorbar adjustments
-            cb = fig.colorbar(mesh, ax=ax_cbar, fraction=0.8, orientation='horizontal', shrink=0.8, aspect=10)
+            cb = fig.colorbar(mesh, ax=ax_cbar, **cbar_prop)
             # cb.outline.set_visible(False)
             cb.ax.tick_params(labelsize='xx-small')
                 
