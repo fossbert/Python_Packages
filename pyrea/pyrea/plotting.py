@@ -10,6 +10,12 @@ from matplotlib.lines import Line2D
 from typing import Union
 
 
+
+
+pyrea_rc_params
+
+
+
 def _plot_ges(along_scores: list, 
               ges_values:np.ndarray, 
               ges_type: str, 

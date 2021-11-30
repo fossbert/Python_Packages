@@ -3,18 +3,18 @@ from setuptools import setup, find_packages
 # Call setup function
 setup(
     author="H. Carlo Maurer",
-    description="Gene set enrichment functionality",
-    name="gsea",
+    description="Tools for gene set enrichment functionality",
+    name="pyrea",
     version="0.1.0",
-    packages=find_packages('gsea'),
-    package_dir={'gsea': 'gsea'},
+    packages=find_packages('pyrea'),
+    package_dir={'pyrea': 'pyrea'},
     include_package_data=True,
-    package_data={'gsea': ['data/*.json']},
+    package_data={'pyrea': ['data/*.json']},
     install_requires=['pandas>=1.3.1', 
     'scipy>=1.6.2',
     'numpy>=1.20.3', 
     'statsmodels>=0.12.2',
-    'matplotlib>=3.3.4' 
+    'matplotlib>=3.4.2' 
     ],
     python_requires='>=3.8.*',
     )

@@ -1,5 +1,5 @@
 """
-The gsea package provides classes and functions for gene set enrichment analysis.
+The pyrea package provides classes and functions for gene set enrichment analysis.
 """
 
 from .Gsea1T import Gsea1T, Gsea1TMultSets, Gsea1TMultSigs

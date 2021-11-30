@@ -86,9 +86,9 @@ class Gsea2T(Gsea1T):
     
     def plot(self,
              figsize: tuple=(3, 3),
-             conditions: tuple = ('A', 'B'),
-             ges_type: str = None,
+             conditions: tuple = ('High', 'Low'), #always sorted from high to low for Gsea2T
              ges_symlog: bool=True,
+             ges_type: str = None,
              ges_stat_fmt:str='1.0f',
              ges_kw: dict = None,
              evt_kw_1: dict = None,
@@ -136,24 +136,23 @@ class Gsea2T(Gsea1T):
 
         """
         
-        # Some defaults
+        # Defaults for matched appearance
         ges_prop = {'color':'.5', 'alpha':0.25, 'linewidth':0.1}
         evt_prop_1 = {'color': '#AC3220', 'alpha':0.7, 'linewidths':0.5} # Chinese Red
         evt_prop_2 = {'color': '#50808E', 'alpha':0.7, 'linewidths':0.5} # Teal Blue
         rs_prop_1 = {k:v for k, v in evt_prop_1.items() if k=='color'}
         rs_prop_2 = {k:v for k, v in evt_prop_2.items() if k=='color'}
         leg_prop_1 = {'title':'Set1', "loc":1, 'labelcolor':evt_prop_1.get('color')}  
-        leg_prop_2 = {'title':'Set2', "loc":3, 'labelcolor':evt_prop_2.get('color')}
+        leg_prop_2 = {'title':'Set2', "loc":3, 'labelcolor':evt_prop_2.get('color')} 
   
-        fig = plt.figure(figsize=figsize, 
-                         tight_layout=True)
+        fig = plt.figure(figsize=figsize)
         
-        gs = fig.add_gridspec(4, 1, 
+        gs = fig.add_gridspec(nrows=4, ncols=1, 
                               height_ratios=[2, 1, 6, 1], 
                               hspace=0)
 
         # first graph
-        ax1 = fig.add_subplot(gs[0])
+        ax_ges = fig.add_subplot(gs[0,0])
         if ges_kw is not None:
             ges_prop.update(ges_kw)
         pl._plot_ges(self.along_scores, 
@@ -163,48 +162,46 @@ class Gsea2T(Gsea1T):
                      is_high_to_low=True,
                      symlog=ges_symlog,
                      stat_fmt=ges_stat_fmt,
-                     ax=ax1, 
+                     ax=ax_ges, 
                      **ges_prop)
         
         # second graph: bars to indicate positions of FIRST GENE SET genes
-        ax2 = fig.add_subplot(gs[1])
-        if evt_kw_1 is not None:
+        ax_evt1 = fig.add_subplot(gs[1,0])
+        if evt_kw_1:
             evt_prop_1.update(evt_kw_1)
-        ax2.eventplot(self.gs_idx_1, **evt_prop_1)
-        ax2.axis('off')
+        ax_evt1.eventplot(self.gs_idx_1, **evt_prop_1)
+        ax_evt1.axis('off')
 
-        # Third graph: Running sums
-        ax3 = fig.add_subplot(gs[2])
-        if leg_kw_1 is not None:
+        # Third graph: Running sums and legends
+        ax_rs = fig.add_subplot(gs[2,0])
+        if rs_kw_1:
+            rs_prop_1.update(rs_kw_1)
+        if leg_kw_1:
             leg_prop_1.update(leg_kw_1)
-        if leg_kw_2 is not None:
+            
+        if rs_kw_2:
+            rs_prop_2.update(rs_kw_2)
+        if leg_kw_2:
             leg_prop_2.update(leg_kw_2)
     
-        if rs_kw_1 is not None:
-            rs_prop_1.update(rs_kw_1)
-        if rs_kw_2 is not None:
-            rs_prop_2.update(rs_kw_2)
-            
-        # ax3.tick_params(labelsize='x-small')
         pl._plot_run_sum(self.rs_1, self.es_idx_1, **rs_prop_1)
         leg1 = pl._stats_legend(self.aREA_nes_1, self.pval_1, leg_kw=leg_prop_1)
-        ax3.add_artist(leg1)
-        pl._plot_run_sum(self.rs_2, self.es_idx_2, ax=ax3, add=True, **rs_prop_2)
+        ax_rs.add_artist(leg1)
+        pl._plot_run_sum(self.rs_2, self.es_idx_2, ax=ax_rs, add=True, **rs_prop_2)
         leg2 = pl._stats_legend(self.aREA_nes_2, self.pval_2, leg_kw=leg_prop_2)
-        ax3.add_artist(leg2)
-        ax3.spines['bottom'].set_visible(False)
+        ax_rs.add_artist(leg2)
+        ax_rs.spines['bottom'].set_visible(False)
         
         # fourth graph: bars to indicate positions of SECOND GENE SET genes
-        ax4 = fig.add_subplot(gs[3])
-        if evt_kw_2 is not None:
+        ax_evt2 = fig.add_subplot(gs[3,0])
+        if evt_kw_2:
             evt_prop_2.update(evt_kw_2)
-        ax4.eventplot(self.gs_idx_2, **evt_prop_2)
-        ax4.set_yticks([])
-        ax4.tick_params(labelsize='x-small')
-        pl._format_xaxis_ges(self.ns, ax=ax4)
+        ax_evt2.eventplot(self.gs_idx_2, **evt_prop_2)
+        ax_evt2.set_yticks([])
+        pl._format_xaxis_ges(self.ns, ax=ax_evt2)
       
         for spine in ['left', 'right']:
-            ax4.spines[spine].set_visible(False)
+            ax_evt2.spines[spine].set_visible(False)
         
         return fig
     
@@ -784,7 +781,7 @@ class GseaRegMultSigs(Gsea1TMultSigs, GseaReg):
                       'xtick.labelsize':'x-small', 
                       'xtick.major.pad':1.0}
         
-        if evt_kw is not None:
+        if evt_kw:
             evt_prop.update(evt_kw)
         
         lofs, ytick_pos = pl._prepare_multi_gseareg(linelengths=evt_prop.get('linelengths'), 
