@@ -20,14 +20,13 @@ from statsmodels.stats.multitest import multipletests
 This module implements gene set enrichment functionality for one-tailed gene sets. 
 """
 
-pyrea_rc_params = {'axes.linewidth': 0.5, 'axes.titlelocation': 'left',
+PYREA_RC_PARAMS = {'axes.linewidth': 0.5, 'axes.titlelocation': 'left',
                    'axes.titlepad': 4.0, 'axes.labelpad': 2.0,
                    'axes.xmargin': .02, 'axes.ymargin': .02,
                    'xtick.major.size': 0, 'xtick.minor.size': 0,
                     'xtick.major.pad': 2.0, 'xtick.minor.pad': 2.0 ,
                     'ytick.major.size': 0, 'ytick.minor.size': 0,
                     'ytick.major.pad': 2.0, 'ytick.minor.pad': 2.0 ,
-                    #'grid.color': .8,
                     'legend.framealpha': 1.0, 'legend.edgecolor': '0.5',
                     'legend.handlelength': 1.0, 'legend.handletextpad': 0.4,
                     'legend.columnspacing': 1.0}
@@ -39,10 +38,11 @@ class Gsea1T:
 
     def __init__(self, 
                  ges: pd.Series, 
-                 gene_set: list, 
+                 gene_set: dict, 
                  weight: float = 1):
 
         self.weight = weight
+        self.gene_set_name, self.gene_set_org = gene_set.popitem()
 
         if not isinstance(ges, pd.Series):
             raise TypeError('Need an indexed pandas Series, please.')
@@ -51,21 +51,21 @@ class Gsea1T:
             self.ns = len(self.ges)
             self.along_scores = [*range(self.ns)]
 
-        if not np.in1d(gene_set, ges.index).any():
+        
+        if not np.in1d(self.gene_set_org, ges.index).any():
             raise ValueError('None of the genes in gene set found in GES index')
         else:
-            self.gs_org = gene_set
-            self.gs_final = [g for g in gene_set if g in self.ges.index]
+            self.gene_set_final = [g for g in self.gene_set_org if g in self.ges.index]
 
-        self.gs_idx = self._find_hits(self.ges, self.gs_final)
+        self.gs_idx = self._find_hits(self.ges, self.gene_set_final)
 
         self.rs = self._derive_rs(self.ges, self.gs_idx, self.weight)
         self.es_idx = np.abs(self.rs).argmax()
 
-        self.gs_reg = gene_sets_to_regulon({'GS':self.gs_final}, minsize=len(self.gs_final))
+        self.gs_reg = gene_sets_to_regulon({self.gene_set_name:self.gene_set_final}, minsize=len(self.gene_set_final))
         self.aREA_nes = aREA(self.ges,
                             self.gs_reg, 
-                            minsize=len(self.gs_final)).iloc[0][0]
+                            minsize=len(self.gene_set_final)).iloc[0][0]
 
         self.pval = norm.sf(np.abs(self.aREA_nes))*2
         self.ledge, self.ledge_xinfo = self._get_ledge(self.ges, self.gs_idx, self.es_idx)
@@ -74,7 +74,11 @@ class Gsea1T:
 
         """String representation for the Gsea1T class"""
 
-        return f"Gsea1T(GES length: {self.ns}, Gene set:{len(self.gs_org)}, Overlap: {len(self.gs_final)})"
+        return (f"Gsea1T(GES length: {self.ns}, " 
+                f"Gene set:{len(self.gene_set_org)}, "
+                f"Name: {self.gene_set_name}, "
+                f"Overlap: {len(self.gene_set_final)})"
+                )
 
     def _find_hits(self, 
                    ges: pd.Series,
@@ -191,14 +195,15 @@ class Gsea1T:
 
        
     def plot(self,
-             figsize: tuple=(3, 3),
              conditions: tuple = ('High', 'Low'),
              ges_symlog: bool = True,
              ges_stat_fmt: str = '1.0f',
+             figsize: tuple = None,
              ges_type: str = None,
              ges_kw: dict = None,
              evt_kw: dict = None,
-             rs_kw: dict = None
+             rs_kw: dict = None,
+             leg_kw: dict = None
              )->mpl.figure.Figure:
 
         """This will return a figure object containing 3 axes displaying the gene expression signature,
@@ -249,22 +254,31 @@ class Gsea1T:
         
         # Some defaults
         ges_prop = {'color':'.5', 'alpha':0.25, 'linewidth':0.1}
-        evt_prop = {'color': 'C0', 'alpha':0.7, 'linewidths':0.5}
-        rs_prop = {'color':'C0'}
+        evt_prop = {'color': '#747C92', 'alpha':0.7, 'linewidths':0.5} # Slate gray
+        
+        if figsize:
+            width, height = figsize
+        else:
+            height = 2.2
+            width = 2.5
+        
+        height_evt = 0.2
+        height_ges = 0.5
+        height_rest = height - (height_evt + height_ges)
         
         
-        with plt.rc_context(pyrea_rc_params):
+        with plt.rc_context(PYREA_RC_PARAMS):
             
-            fig = plt.figure(figsize=figsize, 
+            fig = plt.figure(figsize=(width, height), 
                              tight_layout=True)
             
-            gs = fig.add_gridspec(3, 1, 
-                                height_ratios=[2, 1, 7], 
+            gs = fig.add_gridspec(nrows=3, ncols=1, 
+                                height_ratios=[height_ges, height_evt, height_rest], 
                                 hspace=0)
 
             # first graph
-            ax1 = fig.add_subplot(gs[0])
-            if ges_kw is not None:
+            ax_ges = fig.add_subplot(gs[0,0])
+            if ges_kw:
                 ges_prop.update(ges_kw)
             pl._plot_ges(self.along_scores, 
                         self.ges.values, 
@@ -273,34 +287,42 @@ class Gsea1T:
                         ges_type=ges_type, 
                         symlog=ges_symlog,
                         stat_fmt=ges_stat_fmt,
-                        ax=ax1, 
+                        ax=ax_ges, 
                         **ges_prop)
             
             # second graph: bars to indicate positions of individual genes
-            ax2 = fig.add_subplot(gs[1])
-            if evt_kw is not None:
+            ax_evt= fig.add_subplot(gs[1,0])
+            if evt_kw:
                 evt_prop.update(evt_kw)
-            ax2.eventplot(self.gs_idx, **evt_prop)
-            ax2.axis('off')
+            ax_evt.eventplot(self.gs_idx, **evt_prop)
+            ax_evt.axis('off')
 
             # Third graph: Running sum
-            ax3 = fig.add_subplot(gs[2])
+            rs_prop = {"color": evt_prop.get('color')} # cannot be missing, see above
+            leg_prop = {'title':self.gene_set_name, "loc":0}
+        
+            ax_rs = fig.add_subplot(gs[2,0])
+                    
             if rs_kw is not None:
                 rs_prop.update(rs_kw)
-            ax3.tick_params(labelsize='x-small')
-            pl._plot_run_sum(self.rs, self.es_idx, ax=ax3, **rs_prop)
-            leg = pl._stats_legend(self.aREA_nes, self.pval)
-            ax3.add_artist(leg)
-            pl._format_xaxis_ges(self.ns, ax=ax3)
+            ax_rs.tick_params(labelsize='x-small')
+            pl._plot_run_sum(self.rs, self.es_idx, ax=ax_rs, **rs_prop)
+            if leg_kw:
+                leg_prop.update(leg_kw)
+            leg = pl._stats_legend(self.aREA_nes, self.pval, leg_kw=leg_prop)
+            ax_rs.add_artist(leg)
+            pl._format_xaxis_ges(self.ns, ax=ax_rs)
             
         return fig
 
+    # TODO: Label approach needs changing ! 
     def plot_ledge(self,
-         figsize: tuple=(3.5, 3),
-         highlight: tuple = None,
-         rs_kw: dict = None,
-         lbl_kw: dict = None,
-         patch_kw:dict = None)->mpl.figure.Figure:
+                   figsize: tuple=None,
+                    highlight: tuple = None,
+                    rs_kw: dict = None,
+                    lbl_kw: dict = None,
+                    patch_kw:dict = None,
+                    leg_kw:dict = None)->mpl.figure.Figure:
         """
 
         Parameters
@@ -324,44 +346,58 @@ class Gsea1T:
         """
         
         genes = self.ledge['gene'].values
-        rs_prop = {'color':'C0'}
+        genex = self.ledge['index'].values
+        
+        rs_prop = {'color':'#747C92'} #Slate gray
         if rs_kw:
             rs_prop.update(rs_kw)
-            
-        lbl_prop = {'fontsize':4, 'rotation':90, 'ha':'center', 'va':'center'}
+        lbl_prop = {'fontsize':4, 'rotation':60}
         if lbl_kw:
             lbl_prop.update(lbl_kw)
+        leg_prop = {'title':self.gene_set_name, "loc":0}
+        if leg_kw:
+            leg_prop.update(leg_kw)
         
-        with plt.rc_context(pyrea_rc_params):
+        if figsize:
+            width, height = figsize
+        else:
+            height = 2.4
+            width = 2.5
+        
+        height_lbl = 0.5
+        height_rest = height - height_lbl
+        
+        with plt.rc_context(PYREA_RC_PARAMS):
             
-            fig = plt.figure(figsize=figsize)
+            fig = plt.figure(figsize=(width, height))
                     
             # grid
             if self.aREA_nes >= 0:
-                gs = fig.add_gridspec(2, 1, height_ratios=[1, 4], hspace=0.1)
+                gs = fig.add_gridspec(2, 1, height_ratios=[height_lbl, height_rest], hspace=0.1)
                 ax_lbls = fig.add_subplot(gs[0,0])          
                 pl._plot_ledge_labels(self.ledge_xinfo, genes=genes, ax=ax_lbls, highlight=highlight, **lbl_prop)
                 
                 ax_rs = fig.add_subplot(gs[1,0])
                 pl._plot_run_sum(self.rs, self.es_idx, ax=ax_rs, **rs_prop)
-                leg = pl._stats_legend(self.aREA_nes, self.pval)
+                leg = pl._stats_legend(self.aREA_nes, self.pval, leg_kw=leg_prop)
                 ax_rs.add_artist(leg)
                 pl._format_xaxis_ges(self.ns, ax=ax_rs)
                 pl.zoom_effect(ax_lbls, ax_rs, patch_kw=patch_kw)
                 
             else:
-                gs = fig.add_gridspec(2, 1, height_ratios=[4, 1], hspace=0.1)
+                gs = fig.add_gridspec(2, 1, height_ratios=[height_rest, height_lbl], hspace=0.1)
  
                 ax_rs = fig.add_subplot(gs[0,0])
                 pl._plot_run_sum(self.rs, self.es_idx, ax=ax_rs, **rs_prop)
-                leg = pl._stats_legend(self.aREA_nes, self.pval)
+                leg = pl._stats_legend(self.aREA_nes, self.pval, leg_kw=leg_prop)
                 ax_rs.add_artist(leg)
                 pl._format_xaxis_ges(self.ns, ax=ax_rs)
                 ax_rs.xaxis.set_label_position('top')
                 ax_rs.xaxis.tick_top()
         
                 ax_lbls = fig.add_subplot(gs[1,0])
-                pl._plot_ledge_labels(self.ledge_xinfo, genes=genes, ax=ax_lbls, highlight=highlight, upper=False, **lbl_prop)
+                pl._plot_ledge_labels(self.ledge_xinfo, genes=genes, upper=False,
+                                      highlight=highlight, trim_ledge=25, ax=ax_lbls, **lbl_prop)
                 pl.zoom_effect(ax_lbls, ax_rs, upper=False, patch_kw=patch_kw)
             
         return fig    
@@ -481,7 +517,7 @@ class Gsea1TMultSigs:
         
         
     def plot(self, 
-             figsize: tuple = (3, 3),
+             figsize: tuple = None,
              add_title: str = None,
              evt_kw: dict = None,
              norm_kw: dict = None,
@@ -530,21 +566,27 @@ class Gsea1TMultSigs:
                 
         # In this first bit, we determine the NES color scheme
         
-        with plt.rc_context(pyrea_rc_params):
+        if figsize:
+            width, height = figsize
+        else:
+            height = len(df) * 0.3
+            width = 3
+        
+        height_cbar = 0.15 
+        height_rest = height - height_cbar
+        width_nes = 0.25
+        width_rest = width - width_nes
+        
+        with plt.rc_context(PYREA_RC_PARAMS):
             
-            fig = plt.figure(figsize=figsize, tight_layout=True) 
-            
-            # height ratio may change according to figsize and number of signatures,
-            # carve out a fixed number of inches. 0.15 translates to roughly 0.38 cm. 
-            height_clb = 0.15
-            rest = figsize[1]-height_clb
+            fig = plt.figure(figsize=(width, height), dpi=150) 
                     
             gs = fig.add_gridspec(nrows=2, 
                         ncols=2, 
                         hspace=0.025, 
                         wspace=0.025,
-                        width_ratios=[10,1],
-                        height_ratios=[height_clb, rest])
+                        width_ratios=[width_rest, width_nes],
+                        height_ratios=[height_cbar, height_rest])
             
             # Plot 1: Illustrate the ordered signature as a colorbar
             ax_cbar = fig.add_subplot(gs[0,0])
@@ -878,15 +920,15 @@ class Gsea1TMultSets:
         if figsize:
             width, height = figsize
         else:
-            height = len(df) * 0.12
-            width = 2/3 * height
+            height = len(df) * 0.15
+            width = 3
         
-        height_ges = 0.6
+        height_ges = 0.5
         height_rest = height - height_ges
         width_nes = 0.3
         width_rest = width - width_nes
         
-        with plt.rc_context(pyrea_rc_params):
+        with plt.rc_context(PYREA_RC_PARAMS):
             
             fig = plt.figure(figsize=(width, height)) 
                        
