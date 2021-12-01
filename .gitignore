@@ -52,3 +52,8 @@ coverage.xml
 docs/_build/
 
 python_packages.code-workspace
+
+*.gmt
+
+*.pdf
+*.csv
