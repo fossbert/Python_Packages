@@ -2,8 +2,6 @@
 __pycache__/
 *.py[cod]
 
-*.ipynb
-
 # C extensions
 *.so
 
@@ -52,3 +50,7 @@ coverage.xml
 docs/_build/
 
 python_packages.code-workspace
+
+*.pdf
+*.gmt
+*.ipynb
