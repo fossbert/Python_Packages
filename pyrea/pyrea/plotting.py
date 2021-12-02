@@ -9,7 +9,6 @@ from matplotlib import colors
 from matplotlib.lines import Line2D
 from typing import Union
 
-
 def _plot_ges(along_scores: list, 
               ges_values:np.ndarray, 
               ges_type: str, 
@@ -143,7 +142,7 @@ def _stats_legend(nes: float,
                 'labelcolor':'0.15',
                 }
     
-    if leg_kw is not None:
+    if leg_kw:
         leg_prop.update(leg_kw)
             
     ptch = mpl.patches.Patch(color='w')
@@ -227,35 +226,35 @@ def _plot_ledge_labels(xlims: tuple,
         ax = plt.gca()
             
     ax.set_xlim(xlims)
-    ax.set_xticklabels([])
-    ax.set_yticklabels([])
+    ax.set_yticks([])
+    ax.set_xticks([])
     
-    if trim_ledge is not None:
-        assert len(genes)>=trim_ledge, 'Sorry, fewer genes in leading edge than you would like to limit'
+    if trim_ledge:
+        assert len(genes)>=trim_ledge, 'Sorry, fewer genes in leading edge than you would like to limit to.'
         genes = genes[:trim_ledge]
 
     # Heuristic, spread out the genes along relative xaxis, add some jitter for yaxis position
-    xpos = np.linspace(0.02, 0.98, len(genes))
-    ypos = 0.5 + (np.random.normal(0, 0.05, len(genes)))
+    
+    textx = np.linspace(xlims[0], xlims[1], len(genes))
+    #pos = 0.5 + (np.random.normal(0, 0.05, len(genes)))
     
     if upper:
         ax.spines['bottom'].set_visible(False)
+        [ax.text(x, 1, g,  va='top', ha='right', rotation_mode='anchor', **kwargs) for x, g in zip(xpos, genes)]
     else:
         ax.spines['top'].set_visible(False)
+        [ax.annotate(text=g, xy=(x, 1), textva='bottom', ha='left', rotation_mode='anchor', **kwargs) for x, g in zip(textx, genes)]
     
-    if highlight is not None:
-        assert isinstance(highlight, tuple), 'Need a tuple of strings, i.e. gene symbols'
-        assert len(set(genes).intersection(set(highlight))) > 0, 'None of your genes found in leading edge'
-        for x, y, g in zip(xpos, ypos, genes):
-            if g in highlight:
-                ax.annotate(text=g, xy=(x,y), xycoords='axes fraction', 
-                            c='r', fontweight='bold', **kwargs)
-            else: 
-                 ax.annotate(text=g, xy=(x,y), xycoords='axes fraction', **kwargs)
+    # if highlight:
+    #     assert isinstance(highlight, tuple), 'Need a tuple of strings, i.e. gene symbols'
+    #     assert len(set(genes).intersection(set(highlight))), 'None of your genes found in leading edge'
+    #     for x, y, g in zip(xpos, genes):
+    #         if g in highlight:
+    #             ax.text(text=g, xy=(x,y), #xycoords='axes fraction', 
+    #                         c='r', fontweight='bold', **kwargs)
+    #         else: 
+    #              ax.text(text=g, xy=(x,y),  **kwargs)
                 
-    else:
-        [ax.annotate(text=g, xy=(x,y), xycoords='axes fraction', **kwargs) for x, y, g in zip(xpos, ypos, genes)]
-    
     return ax
        
  # Fix FDR for plotting
@@ -452,11 +451,11 @@ def _connect_bbox(bbox1, bbox2,
     
     # get a default for the lines
     line_prop = {"clip_on": False, 'color':'k', 'lw':0.5}
-    if line_kw is not None:
+    if line_kw:
         line_prop.update(line_kw)
     
     patch_prop = {"clip_on": False, 'color':'C0', 'alpha':0.1, 'ec':'none'}
-    if patch_kw is not None:
+    if patch_kw:
         patch_prop.update(patch_kw)
 
 

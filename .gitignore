@@ -51,6 +51,10 @@ docs/_build/
 
 python_packages.code-workspace
 
-*.pdf
-*.gmt
+<<<<<<< HEAD
 *.ipynb
+=======
+*.gmt
+*.pdf
+*.csv
+>>>>>>> 25b6c7f3fc60609ff644bd43d9b699add4c0dde4

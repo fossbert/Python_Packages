@@ -1,3 +1,6 @@
+"""
+This module implements gene set enrichment functionality for two-tailed gene sets. 
+"""
 
 # As always
 import numpy as np
@@ -15,9 +18,19 @@ from .Gsea1T import Gsea1T, Gsea1TMultSigs
 from scipy.stats import norm
 from statsmodels.stats.multitest import multipletests
 
-"""
-This module implements gene set enrichment functionality for two-tailed gene sets. 
-"""
+
+
+pyrea_rc_params = {'axes.linewidth': 0.5, 'axes.titlelocation': 'left',
+                   'axes.titlepad': 4.0, 'axes.labelpad': 2.0,
+                   'axes.xmargin': .02, 'axes.ymargin': .02,
+                   'xtick.major.size': 0, 'xtick.minor.size': 0,
+                    'xtick.major.pad': 2.0, 'xtick.minor.pad': 2.0 ,
+                    'ytick.major.size': 0, 'ytick.minor.size': 0,
+                    'ytick.major.pad': 2.0, 'ytick.minor.pad': 2.0 ,
+                    'legend.framealpha': 1.0, 'legend.handlelength': 1.0, 
+                    'legend.handletextpad': 0.4, 'legend.columnspacing': 1.0}
+
+
 
 class Gsea2T(Gsea1T):
     """ """
@@ -86,9 +99,9 @@ class Gsea2T(Gsea1T):
     
     def plot(self,
              figsize: tuple=(3, 3),
-             conditions: tuple = ('A', 'B'),
-             ges_type: str = None,
+             conditions: tuple = ('High', 'Low'), #always sorted from high to low for Gsea2T
              ges_symlog: bool=True,
+             ges_type: str = None,
              ges_stat_fmt:str='1.0f',
              ges_kw: dict = None,
              evt_kw_1: dict = None,
@@ -136,75 +149,74 @@ class Gsea2T(Gsea1T):
 
         """
         
-        # Some defaults
+        # Defaults for matched appearance
         ges_prop = {'color':'.5', 'alpha':0.25, 'linewidth':0.1}
         evt_prop_1 = {'color': '#AC3220', 'alpha':0.7, 'linewidths':0.5} # Chinese Red
         evt_prop_2 = {'color': '#50808E', 'alpha':0.7, 'linewidths':0.5} # Teal Blue
         rs_prop_1 = {k:v for k, v in evt_prop_1.items() if k=='color'}
         rs_prop_2 = {k:v for k, v in evt_prop_2.items() if k=='color'}
         leg_prop_1 = {'title':'Set1', "loc":1, 'labelcolor':evt_prop_1.get('color')}  
-        leg_prop_2 = {'title':'Set2', "loc":3, 'labelcolor':evt_prop_2.get('color')}
+        leg_prop_2 = {'title':'Set2', "loc":3, 'labelcolor':evt_prop_2.get('color')} 
   
-        fig = plt.figure(figsize=figsize, 
-                         tight_layout=True)
-        
-        gs = fig.add_gridspec(4, 1, 
-                              height_ratios=[2, 1, 6, 1], 
-                              hspace=0)
-
-        # first graph
-        ax1 = fig.add_subplot(gs[0])
-        if ges_kw is not None:
-            ges_prop.update(ges_kw)
-        pl._plot_ges(self.along_scores, 
-                     self.ges.values, 
-                     ges_type=ges_type,
-                     conditions=conditions,
-                     is_high_to_low=True,
-                     symlog=ges_symlog,
-                     stat_fmt=ges_stat_fmt,
-                     ax=ax1, 
-                     **ges_prop)
-        
-        # second graph: bars to indicate positions of FIRST GENE SET genes
-        ax2 = fig.add_subplot(gs[1])
-        if evt_kw_1 is not None:
-            evt_prop_1.update(evt_kw_1)
-        ax2.eventplot(self.gs_idx_1, **evt_prop_1)
-        ax2.axis('off')
-
-        # Third graph: Running sums
-        ax3 = fig.add_subplot(gs[2])
-        if leg_kw_1 is not None:
-            leg_prop_1.update(leg_kw_1)
-        if leg_kw_2 is not None:
-            leg_prop_2.update(leg_kw_2)
-    
-        if rs_kw_1 is not None:
-            rs_prop_1.update(rs_kw_1)
-        if rs_kw_2 is not None:
-            rs_prop_2.update(rs_kw_2)
+        with plt.rc_context(pyrea_rc_params):
             
-        # ax3.tick_params(labelsize='x-small')
-        pl._plot_run_sum(self.rs_1, self.es_idx_1, **rs_prop_1)
-        leg1 = pl._stats_legend(self.aREA_nes_1, self.pval_1, leg_kw=leg_prop_1)
-        ax3.add_artist(leg1)
-        pl._plot_run_sum(self.rs_2, self.es_idx_2, ax=ax3, add=True, **rs_prop_2)
-        leg2 = pl._stats_legend(self.aREA_nes_2, self.pval_2, leg_kw=leg_prop_2)
-        ax3.add_artist(leg2)
-        ax3.spines['bottom'].set_visible(False)
+            fig = plt.figure(figsize=figsize, tight_layout=True)
+            
+            gs = fig.add_gridspec(nrows=4, ncols=1, 
+                                height_ratios=[2, 1, 6, 1], 
+                                hspace=0)
+
+            # first graph
+            ax_ges = fig.add_subplot(gs[0,0])
+            if ges_kw is not None:
+                ges_prop.update(ges_kw)
+            pl._plot_ges(self.along_scores, 
+                        self.ges.values, 
+                        ges_type=ges_type,
+                        conditions=conditions,
+                        is_high_to_low=True,
+                        symlog=ges_symlog,
+                        stat_fmt=ges_stat_fmt,
+                        ax=ax_ges, 
+                        **ges_prop)
+            
+            # second graph: bars to indicate positions of FIRST GENE SET genes
+            ax_evt1 = fig.add_subplot(gs[1,0])
+            if evt_kw_1:
+                evt_prop_1.update(evt_kw_1)
+            ax_evt1.eventplot(self.gs_idx_1, **evt_prop_1)
+            ax_evt1.axis('off')
+
+            # Third graph: Running sums and legends
+            ax_rs = fig.add_subplot(gs[2,0])
+            if rs_kw_1:
+                rs_prop_1.update(rs_kw_1)
+            if leg_kw_1:
+                leg_prop_1.update(leg_kw_1)
+                
+            if rs_kw_2:
+                rs_prop_2.update(rs_kw_2)
+            if leg_kw_2:
+                leg_prop_2.update(leg_kw_2)
         
-        # fourth graph: bars to indicate positions of SECOND GENE SET genes
-        ax4 = fig.add_subplot(gs[3])
-        if evt_kw_2 is not None:
-            evt_prop_2.update(evt_kw_2)
-        ax4.eventplot(self.gs_idx_2, **evt_prop_2)
-        ax4.set_yticks([])
-        ax4.tick_params(labelsize='x-small')
-        pl._format_xaxis_ges(self.ns, ax=ax4)
-      
-        for spine in ['left', 'right']:
-            ax4.spines[spine].set_visible(False)
+            pl._plot_run_sum(self.rs_1, self.es_idx_1, **rs_prop_1)
+            leg1 = pl._stats_legend(self.aREA_nes_1, self.pval_1, leg_kw=leg_prop_1)
+            ax_rs.add_artist(leg1)
+            pl._plot_run_sum(self.rs_2, self.es_idx_2, ax=ax_rs, add=True, **rs_prop_2)
+            leg2 = pl._stats_legend(self.aREA_nes_2, self.pval_2, leg_kw=leg_prop_2)
+            ax_rs.add_artist(leg2)
+            ax_rs.spines['bottom'].set_visible(False)
+            
+            # fourth graph: bars to indicate positions of SECOND GENE SET genes
+            ax_evt2 = fig.add_subplot(gs[3,0])
+            if evt_kw_2:
+                evt_prop_2.update(evt_kw_2)
+            ax_evt2.eventplot(self.gs_idx_2, **evt_prop_2)
+            ax_evt2.set_yticks([])
+            pl._format_xaxis_ges(self.ns, ax=ax_evt2)
+        
+            for spine in ['left', 'right']:
+                ax_evt2.spines[spine].set_visible(False)
         
         return fig
     
@@ -260,64 +272,67 @@ class Gsea2T(Gsea1T):
 
         """
         
-        fig = plt.figure(figsize=figsize)
-        
-        # setup
-        genes_1 = self.ledge_1['gene'].values
-        genes_2 = self.ledge_2['gene'].values
-              
-        # DEFAULTS, Patch will always follow running sum color
-        rs_prop_1 = {'color':'#AC3220'} ; patch_prop_1 =  rs_prop_1.copy() # Chinese red
-        if rs_kw_1 is not None:
-            rs_prop_1.update(rs_kw_1)
-        if patch_kw_1 is not None:
-            patch_prop_1.update(patch_kw_1)
+        with plt.rc_context(pyrea_rc_params):
             
-        rs_prop_2 = {'color':'#50808E'} ; patch_prop_2 = rs_prop_2.copy() # Teal Blue 
-        if rs_kw_2 is not None:
-            rs_prop_2.update(rs_kw_2)
-        if patch_kw_2 is not None:
-            patch_prop_2.update(patch_kw_2)
-    
-        lbl_prop_1 = {'fontsize':4, 'rotation':90, 'ha':'center', 'va':'center'}
-        lbl_prop_2 = lbl_prop_1.copy()
-        if lbl_kw_1 is not None:
-            lbl_prop_1.update(lbl_kw_1)
-        if lbl_kw_2 is not None:
-            lbl_prop_2.update(lbl_kw_2)
+            
+            fig = plt.figure(figsize=figsize)
+            
+            # setup
+            genes_1 = self.ledge_1['gene'].values
+            genes_2 = self.ledge_2['gene'].values
+                
+            # DEFAULTS, Patch will always follow running sum color
+            rs_prop_1 = {'color':'#AC3220'} ; patch_prop_1 =  rs_prop_1.copy() # Chinese red
+            if rs_kw_1:
+                rs_prop_1.update(rs_kw_1)
+            if patch_kw_1:
+                patch_prop_1.update(patch_kw_1)
+                
+            rs_prop_2 = {'color':'#50808E'} ; patch_prop_2 = rs_prop_2.copy() # Teal Blue 
+            if rs_kw_2:
+                rs_prop_2.update(rs_kw_2)
+            if patch_kw_2:
+                patch_prop_2.update(patch_kw_2)
         
-        # LEGEND DEFAULT
-        leg_prop_1 = {'title':'Set1', "loc":1, 'labelcolor':rs_prop_1.get('color')} 
-        if leg_kw_1 is not None:
-            leg_prop_1.update(leg_kw_1)
-        leg_prop_2 = {'title':'Set2', "loc":3, 'labelcolor':rs_prop_2.get('color')}
-        if leg_kw_2 is not None:
-            leg_prop_2.update(leg_kw_2)
-      
-        gs = fig.add_gridspec(3, 1, height_ratios=[1, 4, 1], hspace=0.1)
+            lbl_prop_1 = {'fontsize':4, 'rotation':90, 'ha':'center', 'va':'center'}
+            lbl_prop_2 = lbl_prop_1.copy()
+            if lbl_kw_1:
+                lbl_prop_1.update(lbl_kw_1)
+            if lbl_kw_2:
+                lbl_prop_2.update(lbl_kw_2)
+            
+            # LEGEND DEFAULT
+            leg_prop_1 = {'title':'Set1', "loc":1, 'labelcolor':rs_prop_1.get('color')} 
+            if leg_kw_1:
+                leg_prop_1.update(leg_kw_1)
+            leg_prop_2 = {'title':'Set2', "loc":3, 'labelcolor':rs_prop_2.get('color')}
+            if leg_kw_2:
+                leg_prop_2.update(leg_kw_2)
         
-        # First gene set leading edge, above
-        ax1 = fig.add_subplot(gs[0])          
-        pl._plot_ledge_labels(self.ledge_xinfo_1, genes=genes_1, ax=ax1, 
-                              highlight=highlight_set_1, trim_ledge=ledge_trim_1, **lbl_prop_1)
-        
-        # Running sums
-        ax2 = fig.add_subplot(gs[1])
-        pl._plot_run_sum(self.rs_1, self.es_idx_1, ax=ax2, **rs_prop_1)
-        leg1 = pl._stats_legend(self.aREA_nes_1, self.pval_1, leg_kw=leg_prop_1)
-        ax2.add_artist(leg1)
-        pl._plot_run_sum(self.rs_2, self.es_idx_2, ax=ax2, add=True, **rs_prop_2)
-        leg2 = pl._stats_legend(self.aREA_nes_2, self.pval_2, leg_kw=leg_prop_2)
-        ax2.add_artist(leg2)
-        ax2.set_xticks([])
-        
-        ax3 = fig.add_subplot(gs[2])   
-        pl._plot_ledge_labels(self.ledge_xinfo_2, genes=genes_2, ax=ax3, upper=False, 
-                              highlight=highlight_set_2, trim_ledge=ledge_trim_2, **lbl_prop_2)
-        
-        # Zooming
-        pl.zoom_effect(ax1, ax2, patch_kw=patch_prop_1)
-        pl.zoom_effect(ax3, ax2, upper=False, patch_kw=patch_prop_2)    
+            gs = fig.add_gridspec(3, 1, height_ratios=[1, 4, 1], hspace=0.1)
+            
+            # First gene set leading edge, above
+            ax_lbls1 = fig.add_subplot(gs[0, 0])          
+            pl._plot_ledge_labels(self.ledge_xinfo_1, genes=genes_1, ax=ax_lbls1, 
+                                highlight=highlight_set_1, trim_ledge=ledge_trim_1, **lbl_prop_1)
+            
+            # Running sums
+            ax_rs = fig.add_subplot(gs[1, 0])
+            pl._plot_run_sum(self.rs_1, self.es_idx_1, ax=ax_rs, **rs_prop_1)
+            leg1 = pl._stats_legend(self.aREA_nes_1, self.pval_1, leg_kw=leg_prop_1)
+            ax_rs.add_artist(leg1)
+            pl._plot_run_sum(self.rs_2, self.es_idx_2, ax=ax_rs, add=True, **rs_prop_2)
+            leg2 = pl._stats_legend(self.aREA_nes_2, self.pval_2, leg_kw=leg_prop_2)
+            ax_rs.add_artist(leg2)
+            ax_rs.set_xticks([])
+            
+            ax_lbls2 = fig.add_subplot(gs[2,0])   
+            pl._plot_ledge_labels(self.ledge_xinfo_2, genes=genes_2, ax=ax_lbls2, upper=False, 
+                                highlight=highlight_set_2, trim_ledge=ledge_trim_2, **lbl_prop_2)
+            
+            # Zooming
+            pl.zoom_effect(ax_lbls1, ax_rs, patch_kw=patch_prop_1)
+            pl.zoom_effect(ax_lbls2, ax_rs, upper=False, patch_kw=patch_prop_2)    
         
         return fig    
 
@@ -413,7 +428,7 @@ class GseaReg(Gsea1T):
     
     def plot(self,
              figsize: tuple=(3, 3),
-             conditions: tuple = ('A', 'B'),
+             conditions: tuple = ('High', 'Low'),
              ges_type: str = None,
              ges_symlog: bool=True,
              ges_stat_fmt:str='1.0f',
@@ -466,71 +481,72 @@ class GseaReg(Gsea1T):
         # Some defaults
         ges_prop = {'color':'.5', 'alpha':0.25, 'linewidth':0.1}
         evt_prop_1 = {'color': '#AC3220', 'alpha':0.7, 'linewidths':0.5} # Chinese Red
-        if evt_kw_1 is not None:
+        if evt_kw_1:
             evt_prop_1.update(evt_kw_1)        
         evt_prop_2 = {'color': '#50808E', 'alpha':0.7, 'linewidths':0.5} # Teal Blue
-        if evt_kw_2 is not None:
+        if evt_kw_2:
             evt_prop_2.update(evt_kw_2)
             
         rs_prop_1 = {'color':evt_prop_1.get('color')}
         rs_prop_2 = {'color':evt_prop_2.get('color')}
         
         stat_prop = {'loc':3, "title":self.regulator} # Stats go to bottom left by default
-        if stat_kw is not None:
+        if stat_kw:
             stat_prop.update(stat_kw)
 
-        fig = plt.figure(figsize=figsize, 
-                         tight_layout=True)
-        
-        gs = fig.add_gridspec(4, 1, 
-                              height_ratios=[2, 1, 6, 1], 
-                              hspace=0)
-
-        # first graph
-        ax1 = fig.add_subplot(gs[0])
-        if ges_kw is not None:
-            ges_prop.update(ges_kw)
-        pl._plot_ges(self.along_scores, 
-                     self.ges.values, 
-                     conditions=conditions,
-                     is_high_to_low=True,
-                     ges_type=ges_type, 
-                     symlog=ges_symlog,
-                     stat_fmt=ges_stat_fmt,
-                     ax=ax1, 
-                     **ges_prop)
-        
-        # second graph: bars to indicate positions of FIRST GENE SET genes
-        ax2 = fig.add_subplot(gs[1])
-        ax2.eventplot(self.gs_idx_1, **evt_prop_1)
-        ax2.axis('off')
-
-        # Third graph: Running sums
-        
-        ax3 = fig.add_subplot(gs[2])
-        if rs_kw_1 is not None:
-            rs_prop_1.update(rs_kw_1)
-        if rs_kw_2 is not None:
-            rs_prop_2.update(rs_kw_2)
+        with plt.rc_context(pyrea_rc_params):
+                
+            fig = plt.figure(figsize=figsize, 
+                            tight_layout=True)
             
-        pl._plot_run_sum(self.rs_1, self.es_idx_1, ax=ax3, **rs_prop_1)
-        pl._plot_run_sum(self.rs_2, self.es_idx_2, ax=ax3, add=True, **rs_prop_2)
-        leg = pl._add_reg_legend(evt_prop_1.get('color'), evt_prop_2.get('color'), leg_kw=leg_kw)
-        ax3.add_artist(leg)    
-        stats = pl._stats_legend(self.aREA_nes, self.pval, leg_kw=stat_prop)
-        ax3.add_artist(stats)        
-        ax3.set_xticks([])
-        ax3.spines['bottom'].set_visible(False)
-        
-        # fourth graph: bars to indicate positions of SECOND GENE SET genes
-        ax4 = fig.add_subplot(gs[3])
-     
-        ax4.eventplot(self.gs_idx_2, **evt_prop_2)
-        ax4.set_yticks([])
-        ax4.tick_params(labelsize='x-small')
-        pl._format_xaxis_ges(self.ns, ax=ax4)
-        for spine in ['left', 'right']:
-            ax4.spines[spine].set_visible(False)
+            gs = fig.add_gridspec(4, 1, 
+                                height_ratios=[2, 1, 6, 1], 
+                                hspace=0)
+
+            # first graph
+            ax_ges = fig.add_subplot(gs[0, 0])
+            if ges_kw:
+                ges_prop.update(ges_kw)
+            pl._plot_ges(self.along_scores, 
+                        self.ges.values, 
+                        conditions=conditions,
+                        is_high_to_low=True,
+                        ges_type=ges_type, 
+                        symlog=ges_symlog,
+                        stat_fmt=ges_stat_fmt,
+                        ax=ax_ges, 
+                        **ges_prop)
+            
+            # second graph: bars to indicate positions of FIRST GENE SET genes
+            ax_evt1 = fig.add_subplot(gs[1,0])
+            ax_evt1.eventplot(self.gs_idx_1, **evt_prop_1)
+            ax_evt1.axis('off')
+
+            # Third graph: Running sums
+            
+            ax_rs = fig.add_subplot(gs[2,0])
+            if rs_kw_1:
+                rs_prop_1.update(rs_kw_1)
+            if rs_kw_2:
+                rs_prop_2.update(rs_kw_2)
+                
+            pl._plot_run_sum(self.rs_1, self.es_idx_1, ax=ax_rs, **rs_prop_1)
+            pl._plot_run_sum(self.rs_2, self.es_idx_2, ax=ax_rs, add=True, **rs_prop_2)
+            leg = pl._add_reg_legend(evt_prop_1.get('color'), evt_prop_2.get('color'), leg_kw=leg_kw)
+            ax_rs.add_artist(leg)    
+            stats = pl._stats_legend(self.aREA_nes, self.pval, leg_kw=stat_prop)
+            ax_rs.add_artist(stats)        
+            ax_rs.set_xticks([])
+            ax_rs.spines['bottom'].set_visible(False)
+            
+            # fourth graph: bars to indicate positions of SECOND GENE SET genes
+            ax_evt2 = fig.add_subplot(gs[3,0])
+            ax_evt2.eventplot(self.gs_idx_2, **evt_prop_2)
+            ax_evt2.set_yticks([])
+            ax_evt2.tick_params(labelsize='x-small')
+            pl._format_xaxis_ges(self.ns, ax=ax_evt2)
+            for spine in ['left', 'right']:
+                ax_evt2.spines[spine].set_visible(False)
         
         return fig
     
@@ -585,68 +601,74 @@ class GseaReg(Gsea1T):
         -------
 
         """
-        
-        fig = plt.figure(figsize=figsize)
-        
         # setup
         genes_1 = self.ledge_1['gene'].values
         genes_2 = self.ledge_2['gene'].values
-              
-        # DEFAULTS, Patch will always follow running sum color
+        
+         # Running sums and patches
         rs_prop_1 = {'color':'#AC3220'} ; patch_prop_1 =  rs_prop_1.copy() # Chinese red
-        if rs_kw_1 is not None:
+        if rs_kw_1:
             rs_prop_1.update(rs_kw_1)
-        if patch_kw_1 is not None:
+        if patch_kw_1:
             patch_prop_1.update(patch_kw_1)
             
         rs_prop_2 = {'color':'#50808E'} ; patch_prop_2 = rs_prop_2.copy() # Teal Blue 
-        if rs_kw_2 is not None:
+        if rs_kw_2:
             rs_prop_2.update(rs_kw_2)
-        if patch_kw_2 is not None:
+        if patch_kw_2:
             patch_prop_2.update(patch_kw_2)
-    
+        
+        # Labels
         lbl_prop_1 = {'fontsize':4, 'rotation':90, 'ha':'center', 'va':'center'}
         lbl_prop_2 = lbl_prop_1.copy()
         if lbl_kw_1 is not None:
             lbl_prop_1.update(lbl_kw_1)
         if lbl_kw_2 is not None:
             lbl_prop_2.update(lbl_kw_2)
-            
+        
+        # Legend = statistics
         stat_prop = {'loc':3, "title":self.regulator} # Stats go to bottom left by default
-        if stat_kw is not None:
+        if stat_kw:
             stat_prop.update(stat_kw)
-      
-        gs = fig.add_gridspec(3, 1, height_ratios=[1, 4, 1], hspace=0.1)
         
-        # First gene set leading edge, above
-        ax1 = fig.add_subplot(gs[0])          
-        pl._plot_ledge_labels(self.ledge_xinfo_1, genes=genes_1, ax=ax1, 
-                              highlight=highlight_set_1, trim_ledge=ledge_trim_1, **lbl_prop_1)
         
-        # Running sums
-        ax2 = fig.add_subplot(gs[1])
-        if rs_kw_1 is not None:
-            rs_prop_1.update(rs_kw_1)
-        if rs_kw_2 is not None:
-            rs_prop_2.update(rs_kw_2)
+        with plt.rc_context(pyrea_rc_params):
             
-        pl._plot_run_sum(self.rs_1, self.es_idx_1, ax=ax2, **rs_prop_1)
-        pl._plot_run_sum(self.rs_2, self.es_idx_2, ax=ax2, add=True, **rs_prop_2)
-        leg = pl._add_reg_legend(rs_prop_1.get('color'), rs_prop_2.get('color'), leg_kw=leg_kw)
-        ax2.add_artist(leg)    
-        stats = pl._stats_legend(self.aREA_nes, self.pval, leg_kw=stat_prop)
-        ax2.add_artist(stats)
-        ax2.set_xticks([])
+            fig = plt.figure(figsize=figsize)      
         
-        # 
-        ax3 = fig.add_subplot(gs[2])   
-        pl._plot_ledge_labels(self.ledge_xinfo_2, genes=genes_2, ax=ax3, upper=False, 
-                              highlight=highlight_set_2, trim_ledge=ledge_trim_2, **lbl_prop_2)
-        
-        # Zooming
-        pl.zoom_effect(ax1, ax2, patch_kw=patch_prop_1)
-        pl.zoom_effect(ax3, ax2, upper=False, patch_kw=patch_prop_2)    
-        
+            gs = fig.add_gridspec(nrows=3, ncols=1, 
+                                  height_ratios=[1, 4, 1], 
+                                  hspace=0.1)
+            
+            # First gene set leading edge, above
+            ax_lbls1 = fig.add_subplot(gs[0,0])          
+            pl._plot_ledge_labels(self.ledge_xinfo_1, genes=genes_1, ax=ax_lbls1, 
+                                highlight=highlight_set_1, trim_ledge=ledge_trim_1, **lbl_prop_1)
+            
+            # Running sums
+            ax_rs = fig.add_subplot(gs[1,0])
+            if rs_kw_1:
+                rs_prop_1.update(rs_kw_1)
+            if rs_kw_2:
+                rs_prop_2.update(rs_kw_2)
+                
+            pl._plot_run_sum(self.rs_1, self.es_idx_1, ax=ax_rs, **rs_prop_1)
+            pl._plot_run_sum(self.rs_2, self.es_idx_2, ax=ax_rs, add=True, **rs_prop_2)
+            leg = pl._add_reg_legend(rs_prop_1.get('color'), rs_prop_2.get('color'), leg_kw=leg_kw)
+            ax_rs.add_artist(leg)    
+            stats = pl._stats_legend(self.aREA_nes, self.pval, leg_kw=stat_prop)
+            ax_rs.add_artist(stats)
+            ax_rs.set_xticks([])
+            
+            # 
+            ax_lbls2 = fig.add_subplot(gs[2,0])   
+            pl._plot_ledge_labels(self.ledge_xinfo_2, genes=genes_2, ax=ax_lbls2, upper=False, 
+                                highlight=highlight_set_2, trim_ledge=ledge_trim_2, **lbl_prop_2)
+            
+            # Zooming
+            pl.zoom_effect(ax_lbls1, ax_rs, patch_kw=patch_prop_1)
+            pl.zoom_effect(ax_lbls2, ax_rs, upper=False, patch_kw=patch_prop_2)    
+            
         return fig 
     
     
@@ -704,12 +726,12 @@ class GseaRegMultSigs(Gsea1TMultSigs, GseaReg):
                 f"GseaRegMultSig(Number of genes: {self.ns}\n"
                 f"Number of signatures: {len(self.samples)}\n"
                 f"Regulator: {self.regulator}\n"
-                f"Number targets: {len(self.reg_df_in)}, Overlap: {len(self.reg_df)}\n"
+                f"Number targets: {len(self.regulon_in)}, Overlap: {len(self.reg_df)}\n"
                 )        
         
     def plot(self, 
-             figsize: tuple = (3, 3),
              regulon_colors:tuple = ('#AC3220', '#50808E'),
+             figsize: tuple = None,
              evt_kw: dict = None,
              norm_kw: dict = None,
              pcm_kw: dict= None):
@@ -745,6 +767,8 @@ class GseaRegMultSigs(Gsea1TMultSigs, GseaReg):
 
         """
         
+        
+        
         df = self.stats.copy()
         
         evt_data = [arr for tup in self.gs_idx.values for arr in tup]
@@ -755,79 +779,82 @@ class GseaRegMultSigs(Gsea1TMultSigs, GseaReg):
       
         # Prettify FDR format
         df['FDR'] = df['FDR'].apply(pl._fdr_formatter)
-                      
-        fig = plt.figure(figsize=figsize) 
-        
-        # height ratio may change according to figsize and number of signatures,
-        # carve out a fixed number of inches. 0.15 translates to roughly 0.38 cm. 
-        height_clb = 0.15
-        rest = figsize[1]-height_clb
-                
-        gs = fig.add_gridspec(nrows=2, 
-                      ncols=2, 
-                      hspace=0.2, 
-                      wspace=0.025,
-                      width_ratios=[10,1],
-                      height_ratios=[height_clb, rest])
-        
-        # Plot 1: Illustrate the ordered signature as a colorbar
-        ax1 = fig.add_subplot(gs[0])
-        cb = fig.colorbar(ScalarMappable(cmap=plt.cm.RdBu_r), 
-                          orientation='horizontal', ticks=[], cax=ax1)
-        cb.outline.set_visible(False)
-        ax1.text(0, 0.5, 'Low', color='w', ha='left', va='center', fontsize='x-small')
-        ax1.text(1, 0.5, 'High', color='w', ha='right', va='center', fontsize='x-small')
-    
-        # Plot 2: Illustrate targets
-        rc_new = {'xtick.bottom':False, 'xtick.labelbottom':False,
-                      'xtick.top':True, 'xtick.labeltop':True, 
-                      'xtick.labelsize':'x-small', 
-                      'xtick.major.pad':1.0}
-        
-        if evt_kw is not None:
-            evt_prop.update(evt_kw)
-        
-        lofs, ytick_pos = pl._prepare_multi_gseareg(linelengths=evt_prop.get('linelengths'), 
-                                         number_of_ys=len(self.samples))
-        
-        cls = np.tile(regulon_colors, len(self.samples))
+               
+        if figsize:
+            width, height = figsize
+        else:
+            height = len(df) * 0.5
+            width = 3/4 * height
             
-        with plt.rc_context(rc_new):
-            ax2 = fig.add_subplot(gs[1,0])                  
-            ax2.eventplot(evt_data, lineoffsets=lofs, colors=cls, **evt_prop)
-            ax2.set_yticks(ytick_pos)
+        height_cbar = 0.15
+        height_rest = height - height_cbar
+        width_nes = 0.3
+        width_rest = width - width_nes 
+        
+        with plt.rc_context(pyrea_rc_params):
+                    
+            fig = plt.figure(figsize=(width, height), dpi=200)
+            
+            gs = fig.add_gridspec(nrows=2, ncols=2, 
+                                hspace=0.2, 
+                                wspace=0.025,
+                                width_ratios=[width_rest, width_nes],
+                                height_ratios=[height_cbar, height_rest])
+            
+            # Plot 1: Illustrate the ordered signature as a colorbar
+            ax_cbar = fig.add_subplot(gs[0, 0])
+            cb = fig.colorbar(ScalarMappable(cmap=plt.cm.RdBu_r), 
+                            orientation='horizontal', ticks=[], cax=ax_cbar)
+            #cb.outline.set_visible(False)
+            ax_cbar.text(0, 0.5, 'Low', color='w', ha='left', va='center', fontsize='x-small')
+            ax_cbar.text(1, 0.5, 'High', color='w', ha='right', va='center', fontsize='x-small')
+        
+            # Plot 2: Illustrate targets       
+            if evt_kw:
+                evt_prop.update(evt_kw)
+            
+            lofs, ytick_pos = pl._prepare_multi_gseareg(linelengths=evt_prop.get('linelengths'), 
+                                            number_of_ys=len(self.samples))
+            
+            cls = np.tile(regulon_colors, len(self.samples))
+                
+            ax_evt = fig.add_subplot(gs[1,0])                  
+            ax_evt.eventplot(evt_data, lineoffsets=lofs, colors=cls, **evt_prop)
+            ax_evt.set_yticks(ytick_pos)
             add_y = evt_prop.get('linelengths')
-            ax2.set_ylim([0-add_y, np.max(lofs)+add_y])
-            ax2.set_yticklabels(df['signature_name'].values, fontsize='x-small', va='top')
-            ax2.set_xlim([-.5, self.ns+.5])
-            pl._format_xaxis_ges(self.ns, ax=ax2)
+            ax_evt.set_ylim([0-add_y, np.max(lofs)+add_y])
+            ax_evt.set_yticklabels(df['signature_name'].values, fontsize='x-small', va='top')
+            ax_evt.set_xlim([-.5, self.ns+.5])
+            ax_evt.xaxis.set_label_position('top')
+            ax_evt.xaxis.tick_top()
+            pl._format_xaxis_ges(self.ns, ax=ax_evt)
         # x-axis formating
             for spine in ['right', 'left']:
-                ax2.spines[spine].set_visible(False)
-            ax2.annotate(text=f"{self.regulator} regulon", 
-                         xy=(0.5, -0.01), xycoords='axes fraction', 
-                         ha='center', va='top', fontsize='small')
-    
-        # Plot 3: NES heatmap
-        ax3 = fig.add_subplot(gs[1,1])
-            
-        ax3.pcolormesh(df['NES'].values[:,np.newaxis], 
-               norm=norm, **pcm_prop)
+                ax_evt.spines[spine].set_visible(False)
+            ax_evt.annotate(text=f"{self.regulator} regulon", 
+                            xy=(0.5, -0.01), xycoords='axes fraction', 
+                            ha='center', va='top', fontsize='small')
+        
+            # Plot 3: NES heatmap
+            ax_pcm = fig.add_subplot(gs[1,1])
+                
+            ax_pcm.pcolormesh(df['NES'].values[:,np.newaxis], 
+                norm=norm, **pcm_prop)
 
-        for row in df.itertuples():
-            ax3.text(0.5, row.Index + 0.5, f'{row.NES:1.1f}',
-                fontsize='xx-small', c=row.color,
-                ha='center', va='center')
-            ax3.text(1, row.Index + 0.5, row.FDR,
-                fontsize='xx-small', c='k',
-                ha='left', va='center')
-            ax3.axis('off')
+            for row in df.itertuples():
+                ax_pcm.text(0.5, row.Index + 0.5, f'{row.NES:1.1f}',
+                    fontsize='xx-small', c=row.color,
+                    ha='center', va='center')
+                ax_pcm.text(1, row.Index + 0.5, row.FDR,
+                    fontsize='xx-small', c='k',
+                    ha='left', va='center')
+                ax_pcm.axis('off')
 
-        # Plot 4: Not sure if necessary to open new plot, but use grid fully. Just titles for annotation
-        ax4 = fig.add_subplot(gs[0,1])
-        ax4.text(0.5, 0, 'NES', fontsize='x-small', c='k', ha='center', va='top')
-        ax4.text(1.1, 0, 'FDR', fontsize='x-small', c='k', ha='left', va='top')
-        ax4.axis('off')
+            # Plot 4: Not sure if necessary to open new plot, but use grid fully. Just titles for annotation
+            ax_titles = fig.add_subplot(gs[0,1])
+            ax_titles.text(0.5, 0, 'NES', fontsize='x-small', c='k', ha='center', va='top')
+            ax_titles.text(1.1, 0, 'FDR', fontsize='x-small', c='k', ha='left', va='top')
+            ax_titles.axis('off')
         
         return fig
 
@@ -991,11 +1018,11 @@ class GseaMultReg:
         return nes
                     
     def plot(self, 
-             figsize: tuple = (3, 3),
-             conditions: tuple = ('A', 'B'),
+             conditions: tuple = ('Low', 'High'),
              regulon_colors: tuple=('#AC3220', '#50808E'),
              ges_symlog: bool=True,
              ges_stat_fmt:str='1.0f',
+             figsize:tuple=None,
              subset: dict = None,
              ges_type:str = None,
              ges_kw: dict = None,
@@ -1060,13 +1087,12 @@ class GseaMultReg:
         ges_prop = {'color':'.5', 'alpha':0.25, 'linewidth':0.1}
         evt_prop = {'alpha':0.7, 'linelengths':0.5, 'linewidths':0.5}        
         
-        
         norm, pcm_prop = pl._prepare_nes_colors(df, norm_kw, pcm_kw)
                         
         # prettify FDR 
         df['FDR'] = df['FDR'].apply(pl._fdr_formatter)
                     
-        if subset is not None:
+        if subset:
             df = self._filter_multset_stats(df, subset)
         elif len(df)>20:
             top_rp = df.take(df['NES'].abs().nlargest(20).index)['Regulator']
@@ -1076,77 +1102,85 @@ class GseaMultReg:
         targets = self.target_idx.loc[df['Regulator']].values
         evt_data = [arr for tup in targets for arr in tup]
         
-        # Setup figure and gridspec
-        fig = plt.figure(figsize=figsize) 
+         # Setup figure and gridspec
+        if figsize:
+            width, height = figsize
+        else:
+            height = len(df) * 0.2    
+            width = 3/4 * height
         
-         # height ratio may change according to figsize and number of signatures,
-        # carve out a fixed number of inches. Here: roughly 1.5 cm. 
         height_ges = 0.6
-        rest = figsize[1]-height_ges
+        height_rest = height - height_ges
+        width_nes = 0.3
+        width_rest = width - width_nes
         
-        gs = fig.add_gridspec(nrows=2, 
-                      ncols=2, 
-                      hspace=0.025, 
-                      wspace=0.025,
-                      width_ratios=[10,1],
-                      height_ratios=[height_ges, rest])
         
-        # Plot 1: Illustrate the ordered signature
-        ax1 = fig.add_subplot(gs[0,0])
-        if ges_kw is not None:
-            ges_prop.update(ges_kw)
-        pl._plot_ges(self.along_scores, 
-                     self.ges.values, 
-                     ges_type=ges_type, 
-                     conditions=conditions, 
-                     is_high_to_low=False, 
-                     symlog=ges_symlog,
-                     stat_fmt=ges_stat_fmt,
-                     ax=ax1, **ges_prop)
-        
-        # Plot 2: Illustrate targets
-        ax2 = fig.add_subplot(gs[1,0])
-        
-        lofs, ytick_pos = pl._prepare_multi_gseareg(linelengths=evt_prop.get('linelengths'), 
-                                         number_of_ys=len(df))
-        
-        cls = np.tile(regulon_colors, len(df))
-        
-        if evt_kw is not None:
-            evt_prop.update(evt_kw)
-               
-        ax2.eventplot(evt_data, lineoffsets=lofs, colors=cls, **evt_prop)
-        ax2.set_yticks(ytick_pos)
-        add_y = evt_prop.get('linelengths')
-        ax2.set_ylim([0-add_y, np.max(lofs)+add_y])
-        ax2.set_yticklabels(df['Regulator'].values, fontsize='x-small', va='top')
-        ax2.set_xlim([-.5, self.ns+.5])
-        pl._format_xaxis_ges(self.ns, ax=ax2)
-              
-        # remove spines
-        for spine in ['right', 'left', 'top']:
-            ax2.spines[spine].set_visible(False)
-
-        # Plot 3: NES heatmap            
-        ax3 = fig.add_subplot(gs[1,1])
+        with plt.rc_context(pyrea_rc_params):
             
-        ax3.pcolormesh(df['NES'].values[:,np.newaxis], 
-                    norm=norm, **pcm_prop)
-    
-        for row in df.itertuples():
-            ax3.text(0.5, row.Index + 0.5, f"{row.NES:1.1f}",
-                fontsize='xx-small', c=row.color,
-                ha='center', va='center')
-            ax3.text(1, row.Index + 0.5, row.FDR,
-                fontsize='xx-small', c='k',
-                ha='left', va='center')
-            ax3.axis('off')
+            fig = plt.figure(figsize=(width, height)) 
+                        
+            gs = fig.add_gridspec(nrows=2, ncols=2, 
+                                  hspace=0.025, wspace=0.025,
+                                  width_ratios=[width_rest, width_nes],
+                                  height_ratios=[height_ges, height_rest])
+        
+            # Plot 1: Illustrate the ordered signature
+            ax_ges = fig.add_subplot(gs[0,0])
+            if ges_kw:
+                ges_prop.update(ges_kw)
+                
+            pl._plot_ges(self.along_scores, 
+                        self.ges.values, 
+                        ges_type=ges_type, 
+                        conditions=conditions, 
+                        is_high_to_low=False, 
+                        symlog=ges_symlog,
+                        stat_fmt=ges_stat_fmt,
+                        ax=ax_ges, **ges_prop)
+            
+            # Plot 2: Illustrate targets
+            ax_evt = fig.add_subplot(gs[1,0])
+            
+            lofs, ytick_pos = pl._prepare_multi_gseareg(linelengths=evt_prop.get('linelengths'), 
+                                            number_of_ys=len(df))
+            
+            cls = np.tile(regulon_colors, len(df))
+            
+            if evt_kw:
+                evt_prop.update(evt_kw)
+                
+            ax_evt.eventplot(evt_data, lineoffsets=lofs, colors=cls, **evt_prop)
+            ax_evt.set_yticks(ytick_pos)
+            add_y = evt_prop.get('linelengths')
+            ax_evt.set_ylim([0-add_y, np.max(lofs)+add_y])
+            ax_evt.set_yticklabels(df['Regulator'].values, fontsize='x-small', va='top')
+            ax_evt.set_xlim([-.5, self.ns+.5])
+            pl._format_xaxis_ges(self.ns, ax=ax_evt)
+                
+            # remove spines
+            for spine in ['right', 'left', 'top']:
+                ax_evt.spines[spine].set_visible(False)
 
-        # Plot 4: Not sure if necessary to open new plot, but use grid fully. Just titles for annotation
-        ax4 = fig.add_subplot(gs[0,1])
-        ax4.text(0.5, 0, 'NES', fontsize='x-small', c='k', ha='center', va='bottom')
-        ax4.text(1.1, 0, 'FDR', fontsize='x-small', c='k', ha='left', va='bottom')
-        ax4.axis('off')
+            # Plot 3: NES heatmap            
+            ax_pcm = fig.add_subplot(gs[1,1])
+                
+            ax_pcm.pcolormesh(df['NES'].values[:,np.newaxis], 
+                        norm=norm, **pcm_prop)
+        
+            for row in df.itertuples():
+                ax_pcm.text(0.5, row.Index + 0.5, f"{row.NES:1.1f}",
+                    fontsize='xx-small', c=row.color,
+                    ha='center', va='center')
+                ax_pcm.text(1, row.Index + 0.5, row.FDR,
+                    fontsize='xx-small', c='k',
+                    ha='left', va='center')
+                ax_pcm.axis('off')
+
+            # Plot 4: Not sure if necessary to open new plot, but use grid fully. Just titles for annotation
+            ax_titles = fig.add_subplot(gs[0,1])
+            ax_titles.text(0.5, 0, 'NES', fontsize='x-small', c='k', ha='center', va='bottom')
+            ax_titles.text(1.1, 0, 'FDR', fontsize='x-small', c='k', ha='left', va='bottom')
+            ax_titles.axis('off')
         
         return fig
 
