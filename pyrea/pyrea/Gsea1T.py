@@ -61,6 +61,7 @@ class Gsea1T:
 
         self.rs = self._derive_rs(self.ges, self.gs_idx, self.weight)
         self.es_idx = np.abs(self.rs).argmax()
+        self.left_end_closer = self.es_idx <= (self.ns-self.es_idx)
 
         self.gs_reg = gene_sets_to_regulon({self.gene_set_name:self.gene_set_final}, minsize=len(self.gene_set_final))
         self.aREA_nes = aREA(self.ges,
@@ -68,7 +69,7 @@ class Gsea1T:
                             minsize=len(self.gene_set_final)).iloc[0][0]
 
         self.pval = norm.sf(np.abs(self.aREA_nes))*2
-        self.ledge, self.ledge_xinfo = self._get_ledge(self.ges, self.gs_idx, self.es_idx)
+        self.ledge, self.ledge_xinfo = self._get_ledge(self.ges, self.gs_idx, self.es_idx, self.left_end_closer)
 
     def __repr__(self):
 
@@ -146,7 +147,8 @@ class Gsea1T:
     def _get_ledge(self, 
                    ges: pd.Series,
                    gene_indices: list,
-                   es_index: int)-> tuple:
+                   es_index: int,
+                   left_end_closer: bool)-> tuple:
         """
 
         Parameters
@@ -175,9 +177,9 @@ class Gsea1T:
         """
         # TODO: This is still a bit of a hack regarding the positions for the leading edge plot
         
-        closer_end = es_index <= (len(ges)-es_index) # if True, we're closer to the left hand side
+         # if True, we're closer to the left hand side
         
-        if closer_end:
+        if left_end_closer:
             # Leading edge indices
             ledge_idx = [idx for idx in gene_indices if idx <= es_index]
             ledge_xinfo = np.min(ledge_idx), es_index
@@ -187,13 +189,45 @@ class Gsea1T:
             
             
         ledge_genes = ges.index[ledge_idx].values
+        ledge_values = ges[ledge_genes].values
         
-        df = pd.DataFrame(zip(ledge_genes, ledge_idx), 
-                          columns=['gene', 'index'])
+        df = pd.DataFrame(zip(ledge_genes, ledge_idx, ledge_values), 
+                          columns=['gene', 'index','gene_stat'])
         
         return df, ledge_xinfo
 
-       
+    def _filter_ledge(self, 
+                      ledge:pd.DataFrame, 
+                     left_end_closer: bool, 
+                     *, 
+                     subset: dict=None):
+        
+        ledge_sub = ledge.copy()
+
+        if subset:
+            
+            if not isinstance(subset, dict):
+                raise TypeError('Subset instructions need to be supplied as dictionary')
+            
+            if not any([k in subset for k in ['genes', 'gene_stat']]):
+                raise ValueError('Can only subset based on FDR, gene_stat or gene names')
+                
+            if 'genes' in subset:
+                ledge_sub = ledge_sub[ledge_sub['gene_set'].isin(subset.get('gene_sets'))]
+
+            elif 'gene_stat' in subset:
+                stats = stats[stats['NES'].abs()>=subset.get('score', 2)]
+            
+            else: # In the end, we will always filter based on FDR (even if you don't spell right)
+                stats = stats[stats['FDR']<=subset.get('FDR', 0.1)]
+            
+            if not len(stats)>0:
+                raise AssertionError('None of the gene sets fullfilled the required cutoff')
+        
+        stats.reset_index(inplace=True, drop=True)
+        
+        return stats
+      
     def plot(self,
              conditions: tuple = ('High', 'Low'),
              ges_symlog: bool = True,
@@ -320,9 +354,11 @@ class Gsea1T:
                    figsize: tuple=None,
                     highlight: tuple = None,
                     rs_kw: dict = None,
+                    leg_kw: dict = None,
+                    evt_kw:dict = None,
                     lbl_kw: dict = None,
-                    patch_kw:dict = None,
-                    leg_kw:dict = None)->mpl.figure.Figure:
+                    rect_kw:dict = None,
+                    conn_patch_kw:dict = None):
         """
 
         Parameters
@@ -345,6 +381,22 @@ class Gsea1T:
 
         """
         
+        # Default values
+        rs_prop = {'color':'#747C92'} #Slate gray
+        leg_prop = {'title':self.gene_set_name, "loc":0}
+        evt_prop = {'color': rs_prop.get('color'), 'alpha':0.7, 'linewidths':0.5, 'lineoffsets':0.5}
+        lbl_prop = {'fontsize':'xx-small', 'rotation':90, 'ha':'center', 'va':'bottom'}
+        rect_prop = {'color':rs_prop.get('color'), 'alpha':0.25, 'lw':0}
+        conn_patch_prop = {'color':'.15', 'lw':0.25}
+
+        # Prepare gene labels 
+        df = self.ledge.copy()  
+
+        # df2 = df.nsmallest(20, 'index')
+df2 = df[df['gene'].isin(df.sample(20, axis=0)['gene'])]
+gene_names = df2['gene'].to_list()
+gene_x_positions = df2['index'].to_list()
+gene_name_xpos = np.linspace(xmin, xmax, num=len(df2))
         genes = self.ledge['gene'].values
         genex = self.ledge['index'].values
         
@@ -361,18 +413,19 @@ class Gsea1T:
         if figsize:
             width, height = figsize
         else:
-            height = 2.4
+            height = 3
             width = 2.5
         
-        height_lbl = 0.5
-        height_rest = height - height_lbl
+        height_lbl = 0.8
+        height_evt = 0.2
+        height_rest = height - height_lbl - height_evt
         
         with plt.rc_context(PYREA_RC_PARAMS):
             
             fig = plt.figure(figsize=(width, height))
                     
             # grid
-            if self.aREA_nes >= 0:
+            if self.left_end_closer:
                 gs = fig.add_gridspec(2, 1, height_ratios=[height_lbl, height_rest], hspace=0.1)
                 ax_lbls = fig.add_subplot(gs[0,0])          
                 pl._plot_ledge_labels(self.ledge_xinfo, genes=genes, ax=ax_lbls, highlight=highlight, **lbl_prop)
