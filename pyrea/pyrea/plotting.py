@@ -7,6 +7,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib import colors
 from matplotlib.lines import Line2D
+from matplotlib.patches import Rectangle, ConnectionPatch
 from typing import Sequence, Union
 
 def _plot_ges(along_scores: list, 
@@ -192,76 +193,93 @@ def _add_reg_legend(color_pos:str, color_neg:str,
     return leg
 
     
-def _plot_ledge_labels(xlims: tuple, 
-                       genes: pd.DataFrame, 
-                       upper: bool = True,
-                       trim_ledge: int=30, 
-                       highlight: Sequence[str] = None,
-                       ax = None, 
-                       **kwargs):
-    """
-
-    Parameters
-    ----------
-    xlims: tuple :
-        
-    genes: tuple :
-        
-    upper: bool :
-         (Default value = True)
-    highlight: tuple :
-         (Default value = None)
-    trim_ledge: int :
-         (Default value = None)
-    ax :
-         (Default value = None)
-    **kwargs :
-        
-
-    Returns
-    -------
-
-    """
+def _plot_ledge_labels(ledge_sub:pd.DataFrame, 
+                       left_end_closer: bool, 
+                       ledge_xinfo:tuple, 
+                       highlight:list=None,
+                       line_kw:dict=None, 
+                       text_kw:dict=None, 
+                       ax=None):
+    
     if ax is None:
-        ax = plt.gca()
+        ax =  plt.gca()
     
-    ax.axis('off')
-    # ax.set_xlim(xlims)
+    line_prop = {'lw':.2, 'color':'.5'}
     
-    df = genes.copy()
+    text_prop = {'fontsize':'xx-small', 'rotation':90, 'ha':'center'}
     
-    if len(df)> trim_ledge:
-        if upper:
-            df = df.nsmallest(n=trim_ledge, columns='index')
-        else:
-            df = df.nlargest(n=trim_ledge, columns='index')
+    if line_kw:
+        line_prop.update(line_kw)
+        
+    df = ledge_sub.copy()
+    xmin, xmax = ledge_xinfo
+    
+    if left_end_closer: 
+        y_course = [0, 0.05, 0.25]
+        gene_name_y = 0.3
+        text_prop['va'] = 'bottom'
+        df['gene_name_xposition'] = np.linspace(xmin, xmax, len(df))
+    else:
+        y_course = [1, 0.95, 0.75]
+        gene_name_y = 0.7
+        text_prop['va'] = 'top'
+        df['gene_name_xposition'] = np.linspace(xmax, xmin, len(df))
+    
+    [ax.plot([row.index, row.index, row.gene_name_xposition], y_course, **line_prop) for row in df.itertuples()]
+    
+    if text_kw:
+        text_prop.update(text_kw)
+        
+    for row in df.itertuples():
+        if highlight:
+            text_prop_highlight = text_prop.copy()            
+            text_prop_highlight.update({'fontweight':'bold', 'color':'r'})
 
-    gene_names = df['gene'].to_list()
-    gene_x_positions = df['index'].to_list()
-    gene_name_xpos = np.linspace(xlims[0], xlims[1], num=len(df))
-    
-    texts = [ax.text(gnx, 0.5, gn, **kwargs) for gnx, gn in zip(gene_name_xpos, gene_names)]
-    r = get_renderer(ax.get_figure())
-    transf = ax.transData.inverted()   
-    text_boxes = [get_text_bbox(text, r, transf) for text in texts]    
-    [ax.plot([gx, bbox.x1], [0, bbox.y0], lw=.2, c='.5') for gx, bbox in zip(gene_x_positions, text_boxes)]
-    *_, rtext = texts
-    *_, rbox = text_boxes
-   
-    print(f'Label: {rtext.get_text()}, xmax: {rbox.x1}, xlimits: {ax.get_xlim()}')
-  
-    # if highlight:
-    #     assert isinstance(highlight, tuple), 'Need a tuple of strings, i.e. gene symbols'
-    #     assert len(set(genes).intersection(set(highlight))), 'None of your genes found in leading edge'
-    #     for x, y, g in zip(xpos, genes):
-    #         if g in highlight:
-    #             ax.text(text=g, xy=(x,y), #xycoords='axes fraction', 
-    #                         c='r', fontweight='bold', **kwargs)
-    #         else: 
-    #              ax.text(text=g, xy=(x,y),  **kwargs)
-                
+            if row.gene in highlight:
+                ax.text(row.gene_name_xposition, gene_name_y, row.gene, **text_prop_highlight)
+            else: 
+                ax.text(row.gene_name_xposition, gene_name_y, row.gene, **text_prop)
+        else:
+            ax.text(row.gene_name_xposition, gene_name_y, row.gene, **text_prop)
+      
     return ax
-       
+    
+
+def _ledge_patch_prep(left_end_closer: bool, 
+                      ledge_xinfo: tuple, 
+                      ledge_yinfo:tuple, 
+                      rect_prop:dict,
+                      conn_patch_prop:dict,
+                      *,  
+                      ax_rs, 
+                      ax_evt, 
+                      ):
+      
+      xmin, xmax = ledge_xinfo
+      ymin, ymax = ledge_yinfo
+      rect2 = Rectangle((xmin, 0), xmax, 1, **rect_prop)
+      
+      if left_end_closer:
+            con1 = ConnectionPatch(xyA=(xmin, ymax), coordsA=ax_rs.transData, 
+                       xyB=(xmin, 0), coordsB=ax_evt.transData, **conn_patch_prop)
+            con2 = ConnectionPatch(xyA=(xmax, ymax), coordsA=ax_rs.transData, 
+                       xyB=(xmax, 0), coordsB=ax_evt.transData, **conn_patch_prop)
+            rect1 = Rectangle((xmin, ymin), (xmax-xmin), ymax, **rect_prop)
+            
+            
+      else:
+            con1 = ConnectionPatch(xyA=(xmin, ymin), coordsA=ax_rs.transData, 
+                       xyB=(xmin, 1), coordsB=ax_evt.transData, **conn_patch_prop)
+            con2 = ConnectionPatch(xyA=(xmax, ymin), coordsA=ax_rs.transData, 
+                       xyB=(xmax, 1), coordsB=ax_evt.transData, **conn_patch_prop)
+            rect1 = Rectangle((xmin, ymin), (xmax-xmin), abs(ymin), **rect_prop)
+      
+      patch_dict = {'rs_rect':rect1, 'evt_rect':rect2, 'conn_left':con1, 'conn_right':con2}
+      
+      return patch_dict
+      
+    
+
  # Fix FDR for plotting
 def _fdr_formatter(val: float):
     """

@@ -71,6 +71,10 @@ class Gsea1T:
 
         self.pval = norm.sf(np.abs(self.aREA_nes))*2
         self.ledge, self.ledge_xinfo = self._get_ledge(self.ges, self.gs_idx, self.es_idx, self.left_end_closer)
+        if self.left_end_closer:
+            self.ledge_yinfo = 0, self.rs[self.es_idx]
+        else:
+            self.ledge_yinfo = self.rs[self.es_idx], 0
 
     def __repr__(self):
 
@@ -198,36 +202,66 @@ class Gsea1T:
         return df, ledge_xinfo
 
     def _filter_ledge(self, 
-                      ledge:pd.DataFrame, 
-                     left_end_closer: bool, 
-                     *, 
-                     subset: dict=None):
+                      ledge:pd.DataFrame,
+                    left_end_closer: bool, 
+                    n_genes:int = None,
+                    *, #keyword only from here
+                    subset: dict=None):
         
         ledge_sub = ledge.copy()
+        
+        if not n_genes:
+            n_genes = 25
 
         if subset:
-            
+
             if not isinstance(subset, dict):
                 raise TypeError('Subset instructions need to be supplied as dictionary')
-            
-            if not any([k in subset for k in ['genes', 'gene_stat']]):
-                raise ValueError('Can only subset based on FDR, gene_stat or gene names')
-                
-            if 'genes' in subset:
-                ledge_sub = ledge_sub[ledge_sub['gene_set'].isin(subset.get('gene_sets'))]
 
-            elif 'gene_stat' in subset:
-                stats = stats[stats['NES'].abs()>=subset.get('score', 2)]
+            if not any([k in subset for k in ['gene_stat', 'genes']]):
+                raise ValueError("Valid items are: {gene_stat:float} OR {genes:[str]}")
+                
+            if stat_filter := subset.get('gene_stat', 0):
+                ledge_sub = ledge_sub[ledge_sub['gene_stat'].abs() >= stat_filter]
+                
+            elif gene_filter := subset.get('genes', 0):
+                ledge_sub = ledge_sub[ledge_sub['genes'].isin(gene_filter)]
+                
+            if not len(ledge_sub)>0:
+                raise AssertionError('Filter result has length 0!')
             
-            else: # In the end, we will always filter based on FDR (even if you don't spell right)
-                stats = stats[stats['FDR']<=subset.get('FDR', 0.1)]
+            elif len(ledge_sub)>n_genes:
+                print(f'Found more than {n_genes} genes, subsetting to best {n_genes}!')
+                if left_end_closer:
+                    ledge_sub = ledge_sub.nsmallest(n_genes, 'index')
+                else:
+                    ledge_sub = ledge_sub.nlargest(n_genes, 'index')
+
+        else: 
+            print(f'No filter provided: taking the top {n_genes} ledge genes !')
+            if left_end_closer:             
+                ledge_sub = ledge_sub.nsmallest(n_genes, 'index')
+            else:
+                ledge_sub = ledge_sub.nlargest(n_genes, 'index')
+                    
+        return ledge_sub
+    
+    
+    def _ledge_grid_prep(self, left_end_closer: bool, fig=None):
+    
+        if fig is None:
+            fig = plt.gcf()
             
-            if not len(stats)>0:
-                raise AssertionError('None of the gene sets fullfilled the required cutoff')
-        
-        stats.reset_index(inplace=True, drop=True)
-        
-        return stats
+        if left_end_closer:
+            height_ratios = [0.8, 0.2, 2]
+            gs = fig.add_gridspec(nrows=3, ncols=1, height_ratios=height_ratios, hspace=0.05)
+            grid_dict = {'running_sum':gs[2,0], 'events':gs[1,0], 'labels':gs[0,0]}
+        else:
+            height_ratios = [2, 0.2, 0.8]
+            gs = fig.add_gridspec(nrows=3, ncols=1, height_ratios=height_ratios, hspace=0.05)
+            grid_dict = {'running_sum':gs[0,0], 'events':gs[1,0], 'labels':gs[2,0]}
+            
+        return grid_dict
       
     def plot(self,
              conditions: tuple = ('High', 'Low'),
@@ -352,14 +386,16 @@ class Gsea1T:
 
     # TODO: Label approach needs changing ! 
     def plot_ledge(self,
-                   figsize: tuple=None,
-                    highlight: tuple = None,
-                    rs_kw: dict = None,
-                    leg_kw: dict = None,
-                    evt_kw:dict = None,
-                    lbl_kw: dict = None,
-                    rect_kw:dict = None,
-                    conn_patch_kw:dict = None):
+                   figsize: tuple = None,
+                   n_genes:int=None,
+                   subset: dict=None,
+                   highlight: list = None,
+                   rs_kw: dict = None,
+                   leg_kw: dict = None,
+                   evt_kw:dict = None,
+                   text_kw: dict = None,
+                   rect_kw:dict = None,
+                   conn_patch_kw:dict = None):
         """
 
         Parameters
@@ -380,87 +416,86 @@ class Gsea1T:
         Returns
         -------
 
-<<<<<<< HEAD
         """        
-=======
-        """
-        
         # Default values
         rs_prop = {'color':'#747C92'} #Slate gray
         leg_prop = {'title':self.gene_set_name, "loc":0}
         evt_prop = {'color': rs_prop.get('color'), 'alpha':0.7, 'linewidths':0.5, 'lineoffsets':0.5}
-        lbl_prop = {'fontsize':'xx-small', 'rotation':90, 'ha':'center', 'va':'bottom'}
+        text_prop = {'fontsize':'xx-small', 'rotation':90, 'ha':'center', 'va':'bottom'}
         rect_prop = {'color':rs_prop.get('color'), 'alpha':0.25, 'lw':0}
         conn_patch_prop = {'color':'.15', 'lw':0.25}
 
         # Prepare gene labels 
-        df = self.ledge.copy()  
-
-        # df2 = df.nsmallest(20, 'index')
-df2 = df[df['gene'].isin(df.sample(20, axis=0)['gene'])]
-gene_names = df2['gene'].to_list()
-gene_x_positions = df2['index'].to_list()
-gene_name_xpos = np.linspace(xmin, xmax, num=len(df2))
-        genes = self.ledge['gene'].values
-        genex = self.ledge['index'].values
+        df = self.ledge.copy()
+        df_sub = self._filter_ledge(df, self.left_end_closer, n_genes, subset=subset)  
+        xmin, xmax = self.ledge_xinfo
         
->>>>>>> 1ef2a9620c3105e5d3d823654848e63c51c475c5
-        rs_prop = {'color':'#747C92'} #Slate gray
         if rs_kw:
             rs_prop.update(rs_kw)
-        lbl_prop = {'fontsize':4, 'rotation':60, 'ha':'left', 'va':'bottom'}
-        if lbl_kw:
-            lbl_prop.update(lbl_kw)
-        leg_prop = {'title':self.gene_set_name, "loc":0}
+        if text_kw:
+            text_prop.update(text_kw)
         if leg_kw:
             leg_prop.update(leg_kw)
-        patch_prop = {"clip_on": False, 'color': rs_prop.get('color'), 'alpha':0.1, 'ec':'none'}
-        if patch_kw:
-            patch_prop.update(patch_kw)
+        if rect_kw:
+            rect_prop.update(rect_kw)
+        if conn_patch_kw:
+            conn_patch_prop.update(conn_patch_kw)
         
         if figsize:
             width, height = figsize
         else:
-            height = 3
             width = 2.5
-        
-        height_lbl = 0.8
-        height_evt = 0.2
-        height_rest = height - height_lbl - height_evt
-        
+            height = 3
+                
         with plt.rc_context(PYREA_RC_PARAMS):
             
             fig = plt.figure(figsize=(width, height))
-                    
-            # grid
+            
+            grid_dict = self._ledge_grid_prep(self.left_end_closer, fig=fig)
+            
+            ax_rs = fig.add_subplot(grid_dict.get('running_sum'))
+            pl._plot_run_sum(self.rs, self.es_idx, ax=ax_rs, **rs_prop)
+            leg = pl._stats_legend(self.aREA_nes, self.pval, leg_kw=leg_prop)
+            ax_rs.add_artist(leg)
+            pl._format_xaxis_ges(self.ns, ax=ax_rs)
             if self.left_end_closer:
-                gs = fig.add_gridspec(2, 1, height_ratios=[height_lbl, height_rest], hspace=0.1)
-                ax_lbls = fig.add_subplot(gs[0,0])          
-                ax_lbls = pl._plot_ledge_labels(self.ledge_xinfo, genes=self.ledge, ax=ax_lbls, highlight=highlight, **lbl_prop)
-                
-                ax_rs = fig.add_subplot(gs[1,0])
-                pl._plot_run_sum(self.rs, self.es_idx, ax=ax_rs, **rs_prop)
-                leg = pl._stats_legend(self.aREA_nes, self.pval, leg_kw=leg_prop)
-                ax_rs.add_artist(leg)
-                pl._format_xaxis_ges(self.ns, ax=ax_rs)
-                pl.zoom_effect(ax_lbls, ax_rs, patch_kw=patch_prop)
-                
+                ax_rs.spines['top'].set_visible(False)
             else:
-                gs = fig.add_gridspec(2, 1, height_ratios=[height_rest, height_lbl], hspace=0.1)
- 
-                ax_rs = fig.add_subplot(gs[0,0])
-                pl._plot_run_sum(self.rs, self.es_idx, ax=ax_rs, **rs_prop)
-                leg = pl._stats_legend(self.aREA_nes, self.pval, leg_kw=leg_prop)
-                ax_rs.add_artist(leg)
-                pl._format_xaxis_ges(self.ns, ax=ax_rs)
+                ax_rs.spines['bottom'].set_visible(False)
                 ax_rs.xaxis.set_label_position('top')
                 ax_rs.xaxis.tick_top()
+                
+            # events
+            ax_evt = fig.add_subplot(grid_dict.get('events'))
+            ax_evt.eventplot(self.ledge['index'].values, **evt_prop)
+            ax_evt.set_xticks([])
+            ax_evt.set_yticks([])
+            ax_evt.set_xlim(xmin, xmax)
+            ax_evt.set_ylim(0, 1)
+            for axis in ['top','bottom','left','right']:
+                ax_evt.spines[axis].set_linewidth(0.25)
+
+            # labels
+            ax_lbls = fig.add_subplot(grid_dict.get('labels'), sharex=ax_evt)
+            ax_lbls.axis('off')
+            ax_lbls.set_ylim(0, 1)
+
+            # get patches
+            patch_dict = pl._ledge_patch_prep(self.left_end_closer, 
+                                           self.ledge_xinfo, 
+                                           self.ledge_yinfo, 
+                                           rect_prop, 
+                                           conn_patch_prop,
+                                           ax_rs=ax_rs, 
+                                           ax_evt=ax_evt)
+            fig.add_artist(patch_dict.get('conn_left'))     
+            fig.add_artist(patch_dict.get('conn_right'))   
+
+            ax_evt.add_artist(patch_dict.get('evt_rect'))
+            ax_rs.add_artist(patch_dict.get('rs_rect'))
+
+            pl._plot_ledge_labels(df_sub, self.left_end_closer, self.ledge_xinfo, highlight=highlight)
         
-                ax_lbls = fig.add_subplot(gs[1,0])
-                ax_lbls = pl._plot_ledge_labels(self.ledge_xinfo, genes=self.ledge, upper=False,
-                                      highlight=highlight, trim_ledge=25, ax=ax_lbls, **lbl_prop)
-                pl.zoom_effect(ax_lbls, ax_rs, upper=False, patch_kw=patch_prop)
-            
         return fig    
 
             
