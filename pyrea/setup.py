@@ -14,7 +14,7 @@ setup(
     'scipy>=1.6.2',
     'numpy>=1.20.3', 
     'statsmodels>=0.12.2',
-    'matplotlib>=3.4.2' 
+    'matplotlib>=3.4.2', 
     ],
     python_requires='>=3.8.*',
     )
