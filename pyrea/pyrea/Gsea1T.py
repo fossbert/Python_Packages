@@ -1,5 +1,6 @@
 
 # As always
+from os import path
 import numpy as np
 import pandas as pd
 
@@ -343,20 +344,19 @@ class Gsea1T:
         Returns
         -------
 
-        """
-        
-        genes = self.ledge['gene'].values
-        genex = self.ledge['index'].values
-        
+        """        
         rs_prop = {'color':'#747C92'} #Slate gray
         if rs_kw:
             rs_prop.update(rs_kw)
-        lbl_prop = {'fontsize':4, 'rotation':60}
+        lbl_prop = {'fontsize':4, 'rotation':60, 'ha':'left', 'va':'bottom'}
         if lbl_kw:
             lbl_prop.update(lbl_kw)
         leg_prop = {'title':self.gene_set_name, "loc":0}
         if leg_kw:
             leg_prop.update(leg_kw)
+        patch_prop = {"clip_on": False, 'color': rs_prop.get('color'), 'alpha':0.1, 'ec':'none'}
+        if patch_kw:
+            patch_prop.update(patch_kw)
         
         if figsize:
             width, height = figsize
@@ -375,14 +375,14 @@ class Gsea1T:
             if self.aREA_nes >= 0:
                 gs = fig.add_gridspec(2, 1, height_ratios=[height_lbl, height_rest], hspace=0.1)
                 ax_lbls = fig.add_subplot(gs[0,0])          
-                pl._plot_ledge_labels(self.ledge_xinfo, genes=genes, ax=ax_lbls, highlight=highlight, **lbl_prop)
+                ax_lbls = pl._plot_ledge_labels(self.ledge_xinfo, genes=self.ledge, ax=ax_lbls, highlight=highlight, **lbl_prop)
                 
                 ax_rs = fig.add_subplot(gs[1,0])
                 pl._plot_run_sum(self.rs, self.es_idx, ax=ax_rs, **rs_prop)
                 leg = pl._stats_legend(self.aREA_nes, self.pval, leg_kw=leg_prop)
                 ax_rs.add_artist(leg)
                 pl._format_xaxis_ges(self.ns, ax=ax_rs)
-                pl.zoom_effect(ax_lbls, ax_rs, patch_kw=patch_kw)
+                pl.zoom_effect(ax_lbls, ax_rs, patch_kw=patch_prop)
                 
             else:
                 gs = fig.add_gridspec(2, 1, height_ratios=[height_rest, height_lbl], hspace=0.1)
@@ -396,9 +396,9 @@ class Gsea1T:
                 ax_rs.xaxis.tick_top()
         
                 ax_lbls = fig.add_subplot(gs[1,0])
-                pl._plot_ledge_labels(self.ledge_xinfo, genes=genes, upper=False,
+                ax_lbls = pl._plot_ledge_labels(self.ledge_xinfo, genes=self.ledge, upper=False,
                                       highlight=highlight, trim_ledge=25, ax=ax_lbls, **lbl_prop)
-                pl.zoom_effect(ax_lbls, ax_rs, upper=False, patch_kw=patch_kw)
+                pl.zoom_effect(ax_lbls, ax_rs, upper=False, patch_kw=patch_prop)
             
         return fig    
 

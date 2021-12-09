@@ -7,7 +7,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib import colors
 from matplotlib.lines import Line2D
-from typing import Union
+from typing import Sequence, Union
 
 def _plot_ges(along_scores: list, 
               ges_values:np.ndarray, 
@@ -193,10 +193,10 @@ def _add_reg_legend(color_pos:str, color_neg:str,
 
     
 def _plot_ledge_labels(xlims: tuple, 
-                       genes: tuple, 
+                       genes: pd.DataFrame, 
                        upper: bool = True,
-                       highlight: tuple = None,
-                       trim_ledge: int=None,
+                       trim_ledge: int=30, 
+                       highlight: Sequence[str] = None,
                        ax = None, 
                        **kwargs):
     """
@@ -224,27 +224,32 @@ def _plot_ledge_labels(xlims: tuple,
     """
     if ax is None:
         ax = plt.gca()
-            
-    ax.set_xlim(xlims)
-    ax.set_yticks([])
-    ax.set_xticks([])
     
-    if trim_ledge:
-        assert len(genes)>=trim_ledge, 'Sorry, fewer genes in leading edge than you would like to limit to.'
-        genes = genes[:trim_ledge]
+    ax.axis('off')
+    # ax.set_xlim(xlims)
+    
+    df = genes.copy()
+    
+    if len(df)> trim_ledge:
+        if upper:
+            df = df.nsmallest(n=trim_ledge, columns='index')
+        else:
+            df = df.nlargest(n=trim_ledge, columns='index')
 
-    # Heuristic, spread out the genes along relative xaxis, add some jitter for yaxis position
+    gene_names = df['gene'].to_list()
+    gene_x_positions = df['index'].to_list()
+    gene_name_xpos = np.linspace(xlims[0], xlims[1], num=len(df))
     
-    textx = np.linspace(xlims[0], xlims[1], len(genes))
-    #pos = 0.5 + (np.random.normal(0, 0.05, len(genes)))
-    
-    if upper:
-        ax.spines['bottom'].set_visible(False)
-        [ax.text(x, 1, g,  va='top', ha='right', rotation_mode='anchor', **kwargs) for x, g in zip(xpos, genes)]
-    else:
-        ax.spines['top'].set_visible(False)
-        [ax.annotate(text=g, xy=(x, 1), textva='bottom', ha='left', rotation_mode='anchor', **kwargs) for x, g in zip(textx, genes)]
-    
+    texts = [ax.text(gnx, 0.5, gn, **kwargs) for gnx, gn in zip(gene_name_xpos, gene_names)]
+    r = get_renderer(ax.get_figure())
+    transf = ax.transData.inverted()   
+    text_boxes = [get_text_bbox(text, r, transf) for text in texts]    
+    [ax.plot([gx, bbox.x1], [0, bbox.y0], lw=.2, c='.5') for gx, bbox in zip(gene_x_positions, text_boxes)]
+    *_, rtext = texts
+    *_, rbox = text_boxes
+   
+    print(f'Label: {rtext.get_text()}, xmax: {rbox.x1}, xlimits: {ax.get_xlim()}')
+  
     # if highlight:
     #     assert isinstance(highlight, tuple), 'Need a tuple of strings, i.e. gene symbols'
     #     assert len(set(genes).intersection(set(highlight))), 'None of your genes found in leading edge'
@@ -415,116 +420,167 @@ def _prepare_nes_colors(stats:pd.DataFrame,
     return norm, pcm_prop  
         
 
-### Functions for leading edge plots
-from matplotlib.transforms import (Bbox, TransformedBbox, blended_transform_factory)
-from mpl_toolkits.axes_grid1.inset_locator import (BboxPatch, BboxConnector, BboxConnectorPatch)
-import matplotlib as mpl
+# ### Functions for leading edge plots
+# from matplotlib.transforms import (Bbox, TransformedBbox, blended_transform_factory)
+# from mpl_toolkits.axes_grid1.inset_locator import (BboxPatch, BboxConnector, BboxConnectorPatch)
 
-def _connect_bbox(bbox1, bbox2,
-                 loc1a, loc2a, loc1b, loc2b,
-                 line_kw=None, patch_kw=None):
-    """
+# def _connect_bbox(bbox1, bbox2,
+#                  loc1a, loc2a, loc1b, loc2b,
+#                  patch_kw, line_kw=None):
+#     """
 
-    Parameters
-    ----------
-    bbox1 :
+#     Parameters
+#     ----------
+#     bbox1 :
         
-    bbox2 :
+#     bbox2 :
         
-    loc1a :
+#     loc1a :
         
-    loc2a :
+#     loc2a :
         
-    loc1b :
+#     loc1b :
         
-    loc2b :
+#     loc2b :
         
-    line_kw :
-         (Default value = None)
-    patch_kw :
-         (Default value = None)
+#     line_kw :
+#          (Default value = None)
+#     patch_kw :
+#          (Default value = None)
 
-    Returns
-    -------
+#     Returns
+#     -------
 
-    """
+#     """
     
-    # get a default for the lines
-    line_prop = {"clip_on": False, 'color':'k', 'lw':0.5}
-    if line_kw:
-        line_prop.update(line_kw)
+#     # get a default for the lines
+#     line_prop = {"clip_on": False, 'color':'k', 'lw':0.5}
+#     if line_kw:
+#         line_prop.update(line_kw)
+
+#     c1 = BboxConnector(
+#         bbox1, bbox2, loc1=loc1a, loc2=loc2a, **line_prop)
+#     c2 = BboxConnector(
+#         bbox1, bbox2, loc1=loc1b, loc2=loc2b, **line_prop)
+
+#     bbox_patch1 = BboxPatch(bbox1, **patch_kw)
+#     bbox_patch2 = BboxPatch(bbox2, **patch_kw)
+
+#     # This should not be modified
+#     p = BboxConnectorPatch(bbox1, bbox2,
+#                            loc1a=loc1a, loc2a=loc2a, loc1b=loc1b, loc2b=loc2b, 
+#                            clip_on=False, ec='none')
+
+#     return c1, c2, bbox_patch1, bbox_patch2, p
+
+# def zoom_effect01(ax1:mpl.axes.Axes, 
+#                   ax2:mpl.axes.Axes, 
+#                   xmin:float, 
+#                   xmax:float, **kwargsax1: 
+#                 ax2:, 
+#                 upper: bool=True, 
+#                 line_kw:dict=None, 
+#                 patch_kw:dict=None):
+#     """
+#     Connect *ax1* and *ax2*. The *xmin*-to-*xmax* range in both axes will
+#     be marked.
+
+#     Parameters
+#     ----------
+#     ax1
+#         The main axes.
+#     ax2
+#         The zoomed axes.
+#     xmin, xmax
+#         The limits of the colored area in both plot axes.
+#     **kwargs
+#         Arguments passed to the patch constructor.
+#     """
+
+#     bbox = Bbox.from_extents(xmin, 0, xmax, 1)
+
+#     mybbox1 = TransformedBbox(bbox, ax1.get_xaxis_transform())
+#     mybbox2 = TransformedBbox(bbox, ax2.get_xaxis_transform())
+
+#     prop_patches = {**kwargs, "ec": "none", "alpha": 0.2}
+
+#     c1, c2, bbox_patch1, bbox_patch2, p = connect_bbox(
+#         mybbox1, mybbox2,
+#         loc1a=3, loc2a=2, loc1b=4, loc2b=1,
+#         prop_lines=kwargs, prop_patches=prop_patches)
+
+#     ax1.add_patch(bbox_patch1)
+#     ax2.add_patch(bbox_patch2)
+#     ax2.add_patch(c1)
+#     ax2.add_patch(c2)
+#     ax2.add_patch(p)
+
+#     return c1, c2, bbox_patch1, bbox_patch2, p
+
+# def zoom_effect(ax1:mpl.axes.Axes, 
+#                 ax2:mpl.axes.Axes, 
+#                 upper: bool=True, 
+#                 line_kw:dict=None, 
+#                 patch_kw:dict=None):
+#     """ax1 : the main axes
+#     ax2 : the zoomed axes
     
-    patch_prop = {"clip_on": False, 'color':'C0', 'alpha':0.1, 'ec':'none'}
-    if patch_kw:
-        patch_prop.update(patch_kw)
+#     The xmin & xmax will be taken from the
+#     ax1.viewLim.
 
-
-    c1 = BboxConnector(
-        bbox1, bbox2, loc1=loc1a, loc2=loc2a, **line_prop)
-    c2 = BboxConnector(
-        bbox1, bbox2, loc1=loc1b, loc2=loc2b, **line_prop)
-
-    bbox_patch1 = BboxPatch(bbox1, **patch_prop)
-    bbox_patch2 = BboxPatch(bbox2, **patch_prop)
-
-    # This should not be modified
-    p = BboxConnectorPatch(bbox1, bbox2,
-                           loc1a=loc1a, loc2a=loc2a, loc1b=loc1b, loc2b=loc2b, 
-                           clip_on=False, ec='none')
-
-    return c1, c2, bbox_patch1, bbox_patch2, p
-
-
-def zoom_effect(ax1:mpl.axes.Axes, 
-                ax2:mpl.axes.Axes, 
-                upper: bool=True, 
-                line_kw:dict=None, 
-                patch_kw:dict=None):
-    """ax1 : the main axes
-    ax2 : the zoomed axes
-    
-    The xmin & xmax will be taken from the
-    ax1.viewLim.
-
-    Parameters
-    ----------
-    ax1:mpl.axes.Axes :
+#     Parameters
+#     ----------
+#     ax1:mpl.axes.Axes :
         
-    ax2:mpl.axes.Axes :
+#     ax2:mpl.axes.Axes :
         
-    upper: bool :
-         (Default value = True)
-    line_kw:dict :
-         (Default value = None)
-    patch_kw:dict :
-         (Default value = None)
+#     upper: bool :
+#          (Default value = True)
+#     line_kw:dict :
+#          (Default value = None)
+#     patch_kw:dict :
+#          (Default value = None)
 
-    Returns
-    -------
+#     Returns
+#     -------
 
-    """
+#     """
 
-    tt = ax1.transScale + (ax1.transLimits + ax2.transAxes)
-    trans = blended_transform_factory(ax2.transData, tt)
+#     tt = ax1.transScale + (ax1.transLimits + ax2.transAxes)
+#     trans = blended_transform_factory(ax2.transData, tt)
     
-    # with this option, we can switch connections modes
-    if upper:
-        loc1a, loc2a, loc1b, loc2b = (3, 2, 4, 1)
-    else:
-        loc1a, loc2a, loc1b, loc2b = (1, 4, 2, 3)
+#     # with this option, we can switch connections modes
+#     if upper:
+#         loc1a, loc2a, loc1b, loc2b = (3, 2, 4, 1)
+#     else:
+#         loc1a, loc2a, loc1b, loc2b = (1, 4, 2, 3)
 
-    mybbox1 = ax1.bbox
-    mybbox2 = TransformedBbox(ax1.viewLim, trans)
+#     mybbox1 = ax1.bbox
+#     mybbox2 = TransformedBbox(ax1.viewLim, trans)
 
-    c1, c2, bbox_patch1, bbox_patch2, p = _connect_bbox(
-        mybbox1, mybbox2,
-        loc1a=loc1a, loc2a=loc2a, loc1b=loc1b, loc2b=loc2b,
-        line_kw=line_kw, patch_kw=patch_kw)
+#     c1, c2, bbox_patch1, bbox_patch2, p = _connect_bbox(
+#         mybbox1, mybbox2,
+#         loc1a=loc1a, loc2a=loc2a, loc1b=loc1b, loc2b=loc2b,
+#         line_kw=line_kw, patch_kw=patch_kw)
 
-    ax1.add_patch(bbox_patch1)
-    ax2.add_patch(bbox_patch2)
-    ax2.add_patch(c1)
-    ax2.add_patch(c2)
-    ax2.add_patch(p)
+#     ax1.add_patch(bbox_patch1)
+#     ax2.add_patch(bbox_patch2)
+#     ax2.add_patch(c1)
+#     ax2.add_patch(c2)
+#     ax2.add_patch(p)
 
-    return c1, c2, bbox_patch1, bbox_patch2, p
+#     return c1, c2, bbox_patch1, bbox_patch2, p
+
+
+
+# def get_text_bbox(text:mpl.text.Text, r, transf):
+    
+#     bb = text.get_window_extent(renderer=r)
+#     bb_datacoords = bb.transformed(transf)
+#     return bb_datacoords
+
+# def get_renderer(fig):
+#     try:
+#         return fig.canvas.get_renderer()
+#     except AttributeError:
+#         return fig.canvas.renderer

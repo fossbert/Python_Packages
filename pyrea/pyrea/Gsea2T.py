@@ -10,6 +10,7 @@ import pandas as pd
 from matplotlib import pyplot as plt
 from matplotlib.cm import ScalarMappable
 
+
 # gene set enrichment and helpers
 from .aREA import aREA
 from .utils import gene_sets_to_regulon, _prep_ges
