@@ -66,9 +66,12 @@ class Gsea2T(Gsea1T):
 
         self.rs_1 = self._derive_rs(self.ges, self.gs_idx_1, self.weight)
         self.es_idx_1 = np.abs(self.rs_1).argmax()
+        self.left_end_closer_1 = self.es_idx_1 <= (self.ns-self.es_idx_1)
         
         self.rs_2 = self._derive_rs(self.ges, self.gs_idx_2, self.weight)
         self.es_idx_2 = np.abs(self.rs_2).argmax()
+        self.left_end_closer_2 = self.es_idx_2 <= (self.ns-self.es_idx_2)
+        
 
         self.gs_reg_1 = gene_sets_to_regulon({'GS1':self.gs_final_1}, minsize=len(self.gs_final_1))
         self.aREA_nes_1 = aREA(self.ges,
@@ -81,12 +84,26 @@ class Gsea2T(Gsea1T):
         self.pval_1 = norm.sf(np.abs(self.aREA_nes_1))*2
         self.ledge_1, self.ledge_xinfo_1 = self._get_ledge(self.ges, 
                                                            self.gs_idx_1, 
-                                                           self.es_idx_1)
+                                                           self.es_idx_1,
+                                                           self.left_end_closer_1)
+
         
         self.pval_2 = norm.sf(np.abs(self.aREA_nes_2))*2
         self.ledge_2, self.ledge_xinfo_2 = self._get_ledge(self.ges, 
                                                            self.gs_idx_2, 
-                                                           self.es_idx_2)
+                                                           self.es_idx_2,
+                                                           self.left_end_closer_2)
+
+        if self.left_end_closer_1:
+            self.ledge_yinfo_1 = 0, self.rs_1[self.es_idx_1]
+        else:
+            self.ledge_yinfo_1 = self.rs_1[self.es_idx_1], 0
+
+        if self.left_end_closer_2:
+            self.ledge_yinfo_2 = 0, self.rs_2[self.es_idx_2]
+        else:
+            self.ledge_yinfo_2 = self.rs_2[self.es_idx_2], 0
+        
         
     def __repr__(self):
         
@@ -190,6 +207,7 @@ class Gsea2T(Gsea1T):
 
             # Third graph: Running sums and legends
             ax_rs = fig.add_subplot(gs[2,0])
+            ax_rs.set_xticks([])
             if rs_kw_1:
                 rs_prop_1.update(rs_kw_1)
             if leg_kw_1:
