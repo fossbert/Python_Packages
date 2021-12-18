@@ -225,7 +225,7 @@ class Gsea1T:
                 ledge_sub = ledge_sub[ledge_sub['gene_stat'].abs() >= stat_filter]
                 
             elif gene_filter := subset.get('genes', 0):
-                ledge_sub = ledge_sub[ledge_sub['genes'].isin(gene_filter)]
+                ledge_sub = ledge_sub[ledge_sub['gene'].isin(gene_filter)]
                 
             if not len(ledge_sub)>0:
                 raise AssertionError('Filter result has length 0!')
