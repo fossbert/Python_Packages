@@ -21,7 +21,7 @@ from statsmodels.stats.multitest import multipletests
 
 
 
-pyrea_rc_params = {'axes.linewidth': 0.5, 'axes.titlelocation': 'left',
+PYREA_RC_PARAMS = {'axes.linewidth': 0.5, 'axes.titlelocation': 'left',
                    'axes.titlepad': 4.0, 'axes.labelpad': 2.0,
                    'axes.xmargin': .02, 'axes.ymargin': .02,
                    'xtick.major.size': 0, 'xtick.minor.size': 0,
@@ -38,11 +38,13 @@ class Gsea2T(Gsea1T):
 
     def __init__(self, 
                  ges: pd.Series, 
-                 gene_set_1: list, 
-                 gene_set_2: list,
+                 gene_set_1: dict, 
+                 gene_set_2: dict,
                  weight: float = 1):
                
         self.weight = weight
+        self.gene_set_name_1, self.gene_set_org_1 = gene_set_1.popitem()
+        self.gene_set_name_2, self.gene_set_org_2 = gene_set_2.popitem()
 
         if not isinstance(ges, pd.Series):
             raise TypeError('Need an indexed pandas Series, please.')
@@ -51,18 +53,16 @@ class Gsea2T(Gsea1T):
             self.ns = len(self.ges)
             self.along_scores = [*range(self.ns)]
 
-        if not np.in1d(gene_set_1, ges.index).any():
+        if not np.in1d(self.gene_set_org_1, ges.index).any():
             raise ValueError('None of the genes in gene set 1 found in GES index')
-        elif not np.in1d(gene_set_2, ges.index).any():
+        elif not np.in1d(self.gene_set_org_2, ges.index).any():
             raise ValueError('None of the genes in gene set 2 found in GES index')
         else:
-            self.gs_org_1 = gene_set_1
-            self.gs_final_1 = [g for g in gene_set_1 if g in self.ges.index]
-            self.gs_org_2 = gene_set_2
-            self.gs_final_2 = [g for g in gene_set_2 if g in self.ges.index]
+            self.gene_set_final_1 = [g for g in self.gene_set_org_1 if g in self.ges.index]
+            self.gene_set_final_2 = [g for g in self.gene_set_org_2 if g in self.ges.index]
         
-        self.gs_idx_1 = self._find_hits(self.ges, self.gs_final_1)
-        self.gs_idx_2 = self._find_hits(self.ges, self.gs_final_2)
+        self.gs_idx_1 = self._find_hits(self.ges, self.gene_set_final_1)
+        self.gs_idx_2 = self._find_hits(self.ges, self.gene_set_final_2)
 
         self.rs_1 = self._derive_rs(self.ges, self.gs_idx_1, self.weight)
         self.es_idx_1 = np.abs(self.rs_1).argmax()
@@ -73,11 +73,11 @@ class Gsea2T(Gsea1T):
         self.left_end_closer_2 = self.es_idx_2 <= (self.ns-self.es_idx_2)
         
 
-        self.gs_reg_1 = gene_sets_to_regulon({'GS1':self.gs_final_1}, minsize=len(self.gs_final_1))
+        self.gs_reg_1 = gene_sets_to_regulon({self.gene_set_name_1:self.gene_set_final_1}, minsize=len(self.gene_set_final_1))
         self.aREA_nes_1 = aREA(self.ges,
                             self.gs_reg_1).iloc[0][0]
         
-        self.gs_reg_2 = gene_sets_to_regulon({'GS2':self.gs_final_2}, minsize=len(self.gs_final_2))
+        self.gs_reg_2 = gene_sets_to_regulon({self.gene_set_name_2:self.gene_set_final_2}, minsize=len(self.gene_set_final_2))
         self.aREA_nes_2 = aREA(self.ges,
                             self.gs_reg_2).iloc[0][0]
 
@@ -111,8 +111,8 @@ class Gsea2T(Gsea1T):
 
         return (
             f"Gsea2T(GES length: {self.ns}\n"
-            f"Gene set 1: {len(self.gs_org_1)}, Overlap 1: {len(self.gs_final_1)}\n"
-            f"Gene set 2: {len(self.gs_org_2)}, Overlap 2: {len(self.gs_final_2)})\n"
+            f"Gene set 1: {len(self.gene_set_org_1)}, Overlap 1: {len(self.gene_set_final_1)}\n"
+            f"Gene set 2: {len(self.gene_set_org_2)}, Overlap 2: {len(self.gene_set_final_2)})\n"
         )
     
     def plot(self,
@@ -176,7 +176,7 @@ class Gsea2T(Gsea1T):
         leg_prop_1 = {'title':'Set1', "loc":1, 'labelcolor':evt_prop_1.get('color')}  
         leg_prop_2 = {'title':'Set2', "loc":3, 'labelcolor':evt_prop_2.get('color')} 
   
-        with plt.rc_context(pyrea_rc_params):
+        with plt.rc_context(PYREA_RC_PARAMS):
             
             fig = plt.figure(figsize=figsize, tight_layout=True)
             
@@ -240,19 +240,23 @@ class Gsea2T(Gsea1T):
         return fig
     
     def plot_ledge(self,
-         figsize: tuple=(3, 3),
-         lbl_kw_1: dict = None,
-         ledge_trim_1:int=None,
-         rs_kw_1: dict = None,
-         leg_kw_1:dict=None,
-         patch_kw_1:dict=None,
-         highlight_set_1: tuple = None,
-         lbl_kw_2:dict =None,
-         ledge_trim_2:int=None,
-         rs_kw_2:dict = None,
-         leg_kw_2:dict=None,
-         patch_kw_2:dict=None,
-         highlight_set_2:tuple=None,):
+         figsize: tuple= None,
+        n_genes: int = None,
+        conn_patch_kw: dict = None,
+        subset_1: dict = None,
+        highlight_1: list = None,
+        rs_kw_1: dict = None,
+        leg_kw_1: dict = None,
+        evt_kw_1: dict = None,
+        text_kw_1: dict = None,
+        rect_kw_1: dict = None,
+        subset_2: dict = None,
+        highlight_2: list = None,
+        rs_kw_2: dict = None,
+        leg_kw_2: dict = None,
+        evt_kw_2: dict = None,
+        text_kw_2: dict = None,
+        rect_kw_2: dict = None,):
         """
 
         Parameters
@@ -291,68 +295,170 @@ class Gsea2T(Gsea1T):
 
         """
         
-        with plt.rc_context(pyrea_rc_params):
-            
-            
-            fig = plt.figure(figsize=figsize)
-            
-            # setup
-            genes_1 = self.ledge_1['gene'].values
-            genes_2 = self.ledge_2['gene'].values
-                
-            # DEFAULTS, Patch will always follow running sum color
-            rs_prop_1 = {'color':'#AC3220'} ; patch_prop_1 =  rs_prop_1.copy() # Chinese red
-            if rs_kw_1:
-                rs_prop_1.update(rs_kw_1)
-            if patch_kw_1:
-                patch_prop_1.update(patch_kw_1)
-                
-            rs_prop_2 = {'color':'#50808E'} ; patch_prop_2 = rs_prop_2.copy() # Teal Blue 
-            if rs_kw_2:
-                rs_prop_2.update(rs_kw_2)
-            if patch_kw_2:
-                patch_prop_2.update(patch_kw_2)
+        # Setup 
+
+        # Common parameters
+        conn_patch_prop = {'color':'.15', 'lw':0.25} # this will be the same for both
+        text_prop_1 = {'fontsize':'xx-small', 'rotation':90, 'ha':'center', 'va':'bottom'}
+        text_prop_2 = {'fontsize':'xx-small', 'rotation':90, 'ha':'center', 'va':'top'}
+
+
+        rs_prop_1 = {'color':'#AC3220'} #Chinese red
+        leg_prop_1 = {'title':self.gene_set_name_1, "loc":"upper right"}
+        evt_prop_1 = {'color': rs_prop_1.get('color'), 'alpha':0.7, 'linewidths':0.5, 'lineoffsets':0.5}
+        rect_prop_1 = {'color': rs_prop_1.get('color'), 'alpha':0.25, 'lw':0}
+     
+      
+        rs_prop_2 = {'color':'#50808E'} #Teal blue
+        leg_prop_2 = {'title':self.gene_set_name_2, "loc":"lower left"}
+        evt_prop_2 = {'color': rs_prop_2.get('color'), 'alpha':0.7, 'linewidths':0.5, 'lineoffsets':0.5}
+        rect_prop_2 = {'color': rs_prop_2.get('color'), 'alpha':0.25, 'lw':0}
+     
+      
+         # Prepare gene labels 
+        df_1 = self.ledge_1.copy()
+        df_sub_1 = self._filter_ledge(df_1, self.left_end_closer_1, n_genes, subset=subset_1)  
+        xmin_1, xmax_1 = self.ledge_xinfo_1
         
-            lbl_prop_1 = {'fontsize':4, 'rotation':90, 'ha':'center', 'va':'center'}
-            lbl_prop_2 = lbl_prop_1.copy()
-            if lbl_kw_1:
-                lbl_prop_1.update(lbl_kw_1)
-            if lbl_kw_2:
-                lbl_prop_2.update(lbl_kw_2)
-            
-            # LEGEND DEFAULT
-            leg_prop_1 = {'title':'Set1', "loc":1, 'labelcolor':rs_prop_1.get('color')} 
-            if leg_kw_1:
-                leg_prop_1.update(leg_kw_1)
-            leg_prop_2 = {'title':'Set2', "loc":3, 'labelcolor':rs_prop_2.get('color')}
-            if leg_kw_2:
-                leg_prop_2.update(leg_kw_2)
+        df_2 = self.ledge_2.copy()
+        df_sub_2 = self._filter_ledge(df_2, self.left_end_closer_2, n_genes, subset=subset_2)  
+        xmin_2, xmax_2 = self.ledge_xinfo_2
+
+        if conn_patch_kw:
+            conn_patch_prop.update(conn_patch_kw)
+    
+        if rs_kw_1:
+            rs_prop_1.update(rs_kw_1)
+        if text_kw_1:
+            text_prop_1.update(text_kw_1)
+        if leg_kw_1:
+            leg_prop_1.update(leg_kw_1)
+        if rect_kw_1:
+            rect_prop_1.update(rect_kw_1)
+
+        if rs_kw_2:
+            rs_prop_2.update(rs_kw_2)
+        if text_kw_2:
+            text_prop_2.update(text_kw_2)
+        if leg_kw_2:
+            leg_prop_2.update(leg_kw_2)
+        if rect_kw_2:
+            rect_prop_2.update(rect_kw_2)
+     
+        if figsize:
+            width, height = figsize
+        else:
+            width = 2.5
+            height = 4
         
-            gs = fig.add_gridspec(3, 1, height_ratios=[1, 4, 1], hspace=0.1)
+        with plt.rc_context(PYREA_RC_PARAMS):
             
-            # First gene set leading edge, above
-            ax_lbls1 = fig.add_subplot(gs[0, 0])          
-            pl._plot_ledge_labels(self.ledge_xinfo_1, genes=genes_1, ax=ax_lbls1, 
-                                highlight=highlight_set_1, trim_ledge=ledge_trim_1, **lbl_prop_1)
             
-            # Running sums
-            ax_rs = fig.add_subplot(gs[1, 0])
+            fig = plt.figure(figsize=(width, height))
+
+            # grid           
+            height_ratios = [0.8, 0.2, 2, 0.2, 0.8]
+            gs = fig.add_gridspec(nrows=5, ncols=1, height_ratios=height_ratios, hspace=0.05)
+        
+            # Common running sum plot
+            ax_rs = fig.add_subplot(gs[2, 0])
+            # leading edge from gene set 1
+            ax_evt_1 = fig.add_subplot(gs[1, 0])
+            ax_lbls_1 = fig.add_subplot(gs[0, 0], sharex=ax_evt_1)
+            # leading edge from gene set 2
+            ax_evt_2 = fig.add_subplot(gs[3, 0])
+            ax_lbls_2 = fig.add_subplot(gs[4, 0], sharex=ax_evt_2)
+
+
             pl._plot_run_sum(self.rs_1, self.es_idx_1, ax=ax_rs, **rs_prop_1)
-            leg1 = pl._stats_legend(self.aREA_nes_1, self.pval_1, leg_kw=leg_prop_1)
-            ax_rs.add_artist(leg1)
-            pl._plot_run_sum(self.rs_2, self.es_idx_2, ax=ax_rs, add=True, **rs_prop_2)
-            leg2 = pl._stats_legend(self.aREA_nes_2, self.pval_2, leg_kw=leg_prop_2)
-            ax_rs.add_artist(leg2)
+            pl._plot_run_sum(self.rs_2, self.es_idx_2, add=True, ax=ax_rs, **rs_prop_2)
+          
+            # leg_1 = pl._stats_legend(self.aREA_nes_1, 
+            #                             self.pval_1, 
+            #                             leg_kw=leg_prop_1)
+            # ax_rs.add_artist(leg_1)
+          
+            # leg_2 = pl._stats_legend(self.aREA_nes_2, 
+            #                             self.pval_2, 
+            #                             leg_kw=leg_prop_2)
+            # ax_rs.add_artist(leg_2)
             ax_rs.set_xticks([])
-            
-            ax_lbls2 = fig.add_subplot(gs[2,0])   
-            pl._plot_ledge_labels(self.ledge_xinfo_2, genes=genes_2, ax=ax_lbls2, upper=False, 
-                                highlight=highlight_set_2, trim_ledge=ledge_trim_2, **lbl_prop_2)
-            
-            # Zooming
-            pl.zoom_effect(ax_lbls1, ax_rs, patch_kw=patch_prop_1)
-            pl.zoom_effect(ax_lbls2, ax_rs, upper=False, patch_kw=patch_prop_2)    
-        
+            for spine in ['top', 'bottom']:
+                ax_rs.spines[spine].set_visible(False)
+
+            # first gene set
+            if evt_kw_1:
+                evt_prop_1.update(evt_kw_1)
+            ax_evt_1.eventplot(self.ledge_1['index'].values, **evt_prop_1)
+            ax_evt_1.set_xticks([])
+            ax_evt_1.set_yticks([])
+            ax_evt_1.set_xlim(xmin_1, xmax_1)
+            ax_evt_1.set_ylim(0, 1)
+            for spine in ['top','bottom','left','right']:
+                ax_evt_1.spines[spine].set_linewidth(0.25)
+            ax_lbls_1.axis('off')
+            ax_lbls_1.set_ylim(0, 1)
+
+            # get patches
+            patch_dict_1 = pl._ledge_patch_prep(self.left_end_closer_1, 
+                                           self.ledge_xinfo_1, 
+                                           self.ledge_yinfo_1, 
+                                           rect_prop_1, 
+                                           conn_patch_prop,
+                                           ax_rs=ax_rs, 
+                                           ax_evt=ax_evt_1)
+            # Draw connection lines
+            fig.add_artist(patch_dict_1.get('conn_left'))     
+            fig.add_artist(patch_dict_1.get('conn_right'))
+            # Add shaded rectangles    
+            ax_evt_1.add_artist(patch_dict_1.get('evt_rect'))
+            ax_rs.add_artist(patch_dict_1.get('rs_rect'))
+            # Add text
+            pl._plot_ledge_labels(df_sub_1, 
+                                self.left_end_closer_1, 
+                                self.ledge_xinfo_1, 
+                                highlight=highlight_1, 
+                                line_kw=conn_patch_prop,
+                                text_kw=text_prop_1,
+                                ax=ax_lbls_1)
+
+
+         # second gene set
+            if evt_kw_2:
+                evt_prop_2.update(evt_kw_2)
+            ax_evt_2.eventplot(self.ledge_2['index'].values, **evt_prop_2)
+            ax_evt_2.set_xticks([])
+            ax_evt_2.set_yticks([])
+            ax_evt_2.set_xlim(xmin_2, xmax_2)
+            ax_evt_2.set_ylim(0, 1)
+            for axis in ['top','bottom','left','right']:
+                ax_evt_2.spines[axis].set_linewidth(0.25)
+            ax_lbls_2.axis('off')
+            ax_lbls_2.set_ylim(0, 1)
+
+            # get patches
+            patch_dict_2 = pl._ledge_patch_prep(self.left_end_closer_2, 
+                                           self.ledge_xinfo_2, 
+                                           self.ledge_yinfo_2, 
+                                           rect_prop_2, 
+                                           conn_patch_prop,
+                                           ax_rs=ax_rs, 
+                                           ax_evt=ax_evt_2)
+            # Draw connection lines
+            fig.add_artist(patch_dict_2.get('conn_left'))     
+            fig.add_artist(patch_dict_2.get('conn_right'))
+            # Add shaded rectangles    
+            ax_evt_2.add_artist(patch_dict_2.get('evt_rect'))
+            ax_rs.add_artist(patch_dict_2.get('rs_rect'))
+            # Add text
+            pl._plot_ledge_labels(df_sub_2, 
+                                self.left_end_closer_1, 
+                                self.ledge_xinfo_2, 
+                                highlight=highlight_2, 
+                                line_kw=conn_patch_prop,
+                                text_kw=text_prop_2,
+                                ax=ax_lbls_2)
+
         return fig    
 
 
@@ -513,7 +619,7 @@ class GseaReg(Gsea1T):
         if stat_kw:
             stat_prop.update(stat_kw)
 
-        with plt.rc_context(pyrea_rc_params):
+        with plt.rc_context(PYREA_RC_PARAMS):
                 
             fig = plt.figure(figsize=figsize, 
                             tight_layout=True)

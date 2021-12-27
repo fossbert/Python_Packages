@@ -345,7 +345,7 @@ class Gsea1T:
                                 height_ratios=[height_ges, height_evt, height_rest], 
                                 hspace=0)
 
-            # first graph
+            # first graph: gene expression signature
             ax_ges = fig.add_subplot(gs[0,0])
             if ges_kw:
                 ges_prop.update(ges_kw)
@@ -384,18 +384,17 @@ class Gsea1T:
             
         return fig
 
-    # TODO: Label approach needs changing ! 
     def plot_ledge(self,
                    figsize: tuple = None,
-                   n_genes:int=None,
-                   subset: dict=None,
+                   n_genes: int = None,
+                   subset: dict = None,
                    highlight: list = None,
                    rs_kw: dict = None,
                    leg_kw: dict = None,
-                   evt_kw:dict = None,
+                   evt_kw: dict = None,
                    text_kw: dict = None,
-                   rect_kw:dict = None,
-                   conn_patch_kw:dict = None):
+                   rect_kw: dict = None,
+                   conn_patch_kw: dict = None):
         """
 
         Parameters
@@ -450,7 +449,7 @@ class Gsea1T:
         with plt.rc_context(PYREA_RC_PARAMS):
             
             fig = plt.figure(figsize=(width, height))
-            
+            # set up the grid
             grid_dict = self._ledge_grid_prep(self.left_end_closer, fig=fig)
             
             ax_rs = fig.add_subplot(grid_dict.get('running_sum'))
@@ -467,6 +466,8 @@ class Gsea1T:
                 
             # events
             ax_evt = fig.add_subplot(grid_dict.get('events'))
+            if evt_kw:
+                evt_prop.update(evt_kw)
             ax_evt.eventplot(self.ledge['index'].values, **evt_prop)
             ax_evt.set_xticks([])
             ax_evt.set_yticks([])
@@ -488,13 +489,20 @@ class Gsea1T:
                                            conn_patch_prop,
                                            ax_rs=ax_rs, 
                                            ax_evt=ax_evt)
+            # Draw connection lines
             fig.add_artist(patch_dict.get('conn_left'))     
-            fig.add_artist(patch_dict.get('conn_right'))   
-
+            fig.add_artist(patch_dict.get('conn_right'))
+            # Add shaded rectangles    
             ax_evt.add_artist(patch_dict.get('evt_rect'))
             ax_rs.add_artist(patch_dict.get('rs_rect'))
-
-            pl._plot_ledge_labels(df_sub, self.left_end_closer, self.ledge_xinfo, highlight=highlight)
+            # Add text
+            pl._plot_ledge_labels(df_sub, 
+                                self.left_end_closer, 
+                                self.ledge_xinfo, 
+                                highlight=highlight, 
+                                line_kw=conn_patch_prop,
+                                text_kw=text_prop,
+                                ax=ax_lbls)
         
         return fig    
 
