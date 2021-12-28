@@ -115,7 +115,7 @@ class Gsea1T:
     def _derive_rs(self, 
                    ges: pd.Series, 
                    gene_indices: list,
-                   weight: float)->np.ndarray:
+                   weight: float=1)->np.ndarray:
         
         """Derives the running sum for plotting
 
@@ -210,8 +210,13 @@ class Gsea1T:
         
         ledge_sub = ledge.copy()
         
+        # Set a default if none is provided
         if not n_genes:
             n_genes = 25
+        
+        # cut down to available genes if there are fewer than intended
+        if len(ledge_sub) < n_genes:
+            n_genes = len(ledge_sub)
 
         if subset:
 
@@ -238,7 +243,7 @@ class Gsea1T:
                     ledge_sub = ledge_sub.nlargest(n_genes, 'index')
 
         else: 
-            print(f'No filter provided: taking the top {n_genes} ledge genes !')
+            print(f'No filter provided: taking the top {n_genes} leading edge genes !')
             if left_end_closer:             
                 ledge_sub = ledge_sub.nsmallest(n_genes, 'index')
             else:
@@ -378,7 +383,7 @@ class Gsea1T:
             pl._plot_run_sum(self.rs, self.es_idx, ax=ax_rs, **rs_prop)
             if leg_kw:
                 leg_prop.update(leg_kw)
-            leg = pl._stats_legend(self.aREA_nes, self.pval, leg_kw=leg_prop)
+            leg = pl._stats_legend(self.aREA_nes, self.pval, ax=ax_rs, leg_kw=leg_prop)
             ax_rs.add_artist(leg)
             pl._format_xaxis_ges(self.ns, ax=ax_rs)
             
@@ -418,7 +423,7 @@ class Gsea1T:
         """        
         # Default values
         rs_prop = {'color':'#747C92'} #Slate gray
-        leg_prop = {'title':self.gene_set_name, "loc":0}
+        leg_prop = {'title':self.gene_set_name}
         evt_prop = {'color': rs_prop.get('color'), 'alpha':0.7, 'linewidths':0.5, 'lineoffsets':0.5}
         text_prop = {'fontsize':'xx-small', 'rotation':90, 'ha':'center', 'va':'bottom'}
         rect_prop = {'color':rs_prop.get('color'), 'alpha':0.25, 'lw':0}
@@ -454,7 +459,7 @@ class Gsea1T:
             
             ax_rs = fig.add_subplot(grid_dict.get('running_sum'))
             pl._plot_run_sum(self.rs, self.es_idx, ax=ax_rs, **rs_prop)
-            leg = pl._stats_legend(self.aREA_nes, self.pval, leg_kw=leg_prop)
+            leg = pl._stats_legend(self.aREA_nes, self.pval, ax=ax_rs, leg_kw=leg_prop)
             ax_rs.add_artist(leg)
             pl._format_xaxis_ges(self.ns, ax=ax_rs)
             if self.left_end_closer:

@@ -115,6 +115,7 @@ def _plot_run_sum(run_sum:np.ndarray,
     
 def _stats_legend(nes: float, 
                 pval: float,
+                ax=None,
                 leg_kw: dict = None):
     
     """Turn text for normalized enrichment score into a legend artist for easy placement in the axes.
@@ -133,6 +134,10 @@ def _stats_legend(nes: float,
 
     """
     
+    if ax is None:
+        ax = plt.gca()
+
+
     leg_prop = {'loc':0, 
                 'handlelength':0, 
                 'handletextpad':0, 
@@ -149,14 +154,16 @@ def _stats_legend(nes: float,
     ptch = mpl.patches.Patch(color='w')
     nes, pval = f"NES: {nes:1.2f}", f"p: {pval:1.1e}"
       
-    leg = plt.legend([ptch]*2, [nes, pval], **leg_prop)
+    leg = ax.legend([ptch]*2, [nes, pval], **leg_prop)
     leg.get_frame().set_linewidth(0.2)
     plt.setp(leg.get_title(), color=leg_prop.get('labelcolor'))
         
     return leg
 
-def _add_reg_legend(color_pos:str, color_neg:str, 
-                    leg_kw:dict=None):
+def _add_reg_legend(color_pos:str, 
+                    color_neg:str, 
+                    ax=None,
+                    target_leg_kw:dict=None):
     """
 
     Parameters
@@ -172,7 +179,9 @@ def _add_reg_legend(color_pos:str, color_neg:str,
     -------
 
     """
-    
+    if ax is None:
+        ax = plt.gca()
+
     leg_prop = {'loc':1, #default position is top right
                 'edgecolor':'.15', 
                 'labelspacing':0.2,
@@ -182,12 +191,12 @@ def _add_reg_legend(color_pos:str, color_neg:str,
                 'title':'Targets',
                 'title_fontsize':'x-small'}
     
-    if leg_kw is not None:
-        leg_prop.update(leg_kw)
+    if target_leg_kw is not None:
+        leg_prop.update(target_leg_kw)
         
     handles = [Line2D([0],[0], lw=2, color=color_pos), Line2D([0],[0], lw=2, color=color_neg)]
 
-    leg = plt.legend(handles, ['positive', 'negative'], **leg_prop)
+    leg = ax.legend(handles, ['positive', 'negative'], **leg_prop)
     leg.get_frame().set_linewidth(0.2)
     
     return leg
