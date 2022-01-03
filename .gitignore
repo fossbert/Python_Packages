@@ -1,7 +1,8 @@
-# Ignore basically everything
-*
-# keep those around
-!pyrea/setup.py 
-!pyrea/pyrea/*
-!cbviz/setup.py
-!cbviz/cbviz/*
+#ignore all kind of files
+**.*
+#except pyrea
+!pyrea/
+#and cbviz
+!cbviz/
+
+
