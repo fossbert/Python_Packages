@@ -1,3 +1,7 @@
-**/**
-!pyrea/**
-!cbviz/**
+# Ignore basically everything
+*
+# keep those around
+!pyrea/setup.py 
+!pyrea/pyrea/*
+!cbviz/setup.py
+!cbviz/cbviz/*
