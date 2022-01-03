@@ -29,7 +29,8 @@ PYREA_RC_PARAMS = {'axes.linewidth': 0.5, 'axes.titlelocation': 'left',
                     'ytick.major.size': 0, 'ytick.minor.size': 0,
                     'ytick.major.pad': 2.0, 'ytick.minor.pad': 2.0 ,
                     'legend.framealpha': 1.0, 'legend.edgecolor': '0.5',
-                    'legend.handlelength': 1.0, 'legend.handletextpad': 0.4,
+                    'legend.handlelength': 1.0, 
+                    'legend.handletextpad': 0.4,
                     'legend.columnspacing': 1.0}
 
 
