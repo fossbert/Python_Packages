@@ -1064,7 +1064,7 @@ class GseaRegMultSigs(Gsea1TMultSigs, GseaReg):
         width_nes = 0.3
         width_rest = width - width_nes 
         
-        with plt.rc_context(pyrea_rc_params):
+        with plt.rc_context(PYREA_RC_PARAMS):
                     
             fig = plt.figure(figsize=(width, height), dpi=200)
             
@@ -1388,7 +1388,7 @@ class GseaMultReg:
         width_rest = width - width_nes
         
         
-        with plt.rc_context(pyrea_rc_params):
+        with plt.rc_context(PYREA_RC_PARAMS):
             
             fig = plt.figure(figsize=(width, height)) 
                         
