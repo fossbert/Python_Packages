@@ -49,7 +49,7 @@ def _plot_ges(along_scores: list,
     if ax is None:
         ax = plt.gca()
         
-    ax.fill_between(along_scores, ges_values, **kwargs)
+    ax.fill_between(along_scores, ges_values, **kwargs) #filler
     ax.set_xticks([])
     if ges_type is None:
         ges_type = 'Gene score'

@@ -29,7 +29,8 @@ PYREA_RC_PARAMS = {'axes.linewidth': 0.5, 'axes.titlelocation': 'left',
                     'ytick.major.size': 0, 'ytick.minor.size': 0,
                     'ytick.major.pad': 2.0, 'ytick.minor.pad': 2.0 ,
                     'legend.framealpha': 1.0, 'legend.handlelength': 1.0, 
-                    'legend.handletextpad': 0.4, 'legend.columnspacing': 1.0}
+                    'legend.handletextpad': 0.4, 
+                    'legend.columnspacing': 1.0}
 
 
 
@@ -1063,7 +1064,7 @@ class GseaRegMultSigs(Gsea1TMultSigs, GseaReg):
         width_nes = 0.3
         width_rest = width - width_nes 
         
-        with plt.rc_context(pyrea_rc_params):
+        with plt.rc_context(PYREA_RC_PARAMS):
                     
             fig = plt.figure(figsize=(width, height), dpi=200)
             
@@ -1387,7 +1388,7 @@ class GseaMultReg:
         width_rest = width - width_nes
         
         
-        with plt.rc_context(pyrea_rc_params):
+        with plt.rc_context(PYREA_RC_PARAMS):
             
             fig = plt.figure(figsize=(width, height)) 
                         
