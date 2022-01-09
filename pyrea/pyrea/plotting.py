@@ -205,17 +205,15 @@ def _add_reg_legend(color_pos:str,
 def _plot_ledge_labels(ledge_sub:pd.DataFrame, 
                        left_end_closer: bool, 
                        ledge_xinfo:tuple, 
+                        text_kw:dict, 
                        highlight:list=None,
                        line_kw:dict=None, 
-                       text_kw:dict=None, 
                        ax=None):
     
     if ax is None:
         ax =  plt.gca()
     
     line_prop = {'lw':.2, 'color':'.5'}
-    
-    text_prop = {'fontsize':'xx-small', 'rotation':90, 'ha':'center'}
     
     if line_kw:
         line_prop.update(line_kw)
@@ -226,12 +224,11 @@ def _plot_ledge_labels(ledge_sub:pd.DataFrame,
     if left_end_closer: 
         y_course = [0, 0.05, 0.25]
         gene_name_y = 0.3
-        text_prop['va'] = 'bottom'
         df['gene_name_xposition'] = np.linspace(xmin, xmax, len(df))
     else:
         y_course = [1, 0.95, 0.75]
         gene_name_y = 0.7
-        text_prop['va'] = 'top'
+        text_prop.update({"va":"top"})
         df['gene_name_xposition'] = np.linspace(xmax, xmin, len(df))
     
     [ax.plot([row.index, row.index, row.gene_name_xposition], y_course, **line_prop) for row in df.itertuples()]

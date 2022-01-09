@@ -504,9 +504,9 @@ class Gsea1T:
             pl._plot_ledge_labels(df_sub, 
                                 self.left_end_closer, 
                                 self.ledge_xinfo, 
+                                text_prop,
                                 highlight=highlight, 
                                 line_kw=conn_patch_prop,
-                                text_kw=text_prop,
                                 ax=ax_lbls)
         
         return fig    

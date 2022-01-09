@@ -433,9 +433,9 @@ class Gsea2T(Gsea1T):
             pl._plot_ledge_labels(df_sub_1, 
                                 True, 
                                 self.ledge_xinfo_1, 
+                                text_prop_1,
                                 highlight=highlight_1, 
                                 line_kw=conn_patch_prop,
-                                text_kw=text_prop_1,
                                 ax=ax_lbls_1)
 
 
@@ -470,9 +470,9 @@ class Gsea2T(Gsea1T):
             pl._plot_ledge_labels(df_sub_2, 
                                 False, 
                                 self.ledge_xinfo_2, 
+                                text_prop_2,
                                 highlight=highlight_2, 
                                 line_kw=conn_patch_prop,
-                                text_kw=text_prop_2,
                                 ax=ax_lbls_2)
 
         return fig    
@@ -900,9 +900,9 @@ class GseaReg(Gsea1T):
             pl._plot_ledge_labels(df_sub_1, 
                                 True, 
                                 self.ledge_xinfo_1, 
+                                text_prop_1,
                                 highlight=highlight_1, 
                                 line_kw=conn_patch_prop,
-                                text_kw=text_prop_1,
                                 ax=ax_lbls_1)
 
             # second gene set
@@ -936,9 +936,9 @@ class GseaReg(Gsea1T):
             pl._plot_ledge_labels(df_sub_2, 
                                 False, 
                                 self.ledge_xinfo_2, 
+                                text_prop_2,
                                 highlight=highlight_2, 
                                 line_kw=conn_patch_prop,
-                                text_kw=text_prop_2,
                                 ax=ax_lbls_2)
 
         return fig 
