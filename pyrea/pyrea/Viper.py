@@ -10,7 +10,7 @@ import pandas as pd
 # Plotting utils
 from matplotlib import pyplot as plt
 from . import plotting as pl
-from matplotlib.colors import CenteredNorm
+from matplotlib.colors import TwoSlopeNorm
 
 # gene set enrichment and helpers
 from .aREA import aREA
@@ -155,16 +155,12 @@ class Viper:
         pcm_prop = {'cmap':plt.cm.RdBu_r, 'edgecolors':'k', 'linewidths':0.15}
         if pcm_kw:
             pcm_prop.update(pcm_kw)
-            
-        norm_prop = {'vcenter':0}
-        if norm_kw:
-            norm_prop.update(norm_kw)
-            
+        
         cbar_prop = {'fraction':0.8, 'orientation':'horizontal', 'shrink':0.8, 'aspect':10}
         if cbar_kw:
             cbar_prop.update(cbar_kw)
             
-        norm = CenteredNorm(**norm_prop)
+        norm = TwoSlopeNorm(**norm_kw)
             
         if cluster_cols:
             zvar_col = hierarchy.linkage(ndata.T, method='complete', metric='euclidean')
