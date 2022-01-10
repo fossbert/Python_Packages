@@ -159,8 +159,12 @@ class Viper:
         cbar_prop = {'fraction':0.8, 'orientation':'horizontal', 'shrink':0.8, 'aspect':10}
         if cbar_kw:
             cbar_prop.update(cbar_kw)
+        
+        norm_prop = {'vcenter':0}
+        if norm_kw:
+            norm_prop.update(norm_kw)
             
-        norm = TwoSlopeNorm(**norm_kw)
+        norm = TwoSlopeNorm(**norm_prop)
             
         if cluster_cols:
             zvar_col = hierarchy.linkage(ndata.T, method='complete', metric='euclidean')
