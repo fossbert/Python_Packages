@@ -263,7 +263,7 @@ class Viper:
                 # reorder data
                 ndata = ndata.iloc[dn_row['leaves']]
                 ax_mesh = fig.add_subplot(gs[1,1])
-                mesh = ax_mesh.pcolormesh(ndata.values, **pcm_prop)
+                mesh = ax_mesh.pcolormesh(ndata.values, norm=norm, **pcm_prop)
             
                 if show_row_labels:
                     ax_mesh.set_yticks(np.arange(nrows) + 0.5)
@@ -318,7 +318,7 @@ class Viper:
                 ndata = ndata.iloc[:,dn_col['leaves']]
                 
                 ax_mesh = fig.add_subplot(gs[0])
-                mesh = ax_mesh.pcolormesh(ndata.values, **pcm_prop)
+                mesh = ax_mesh.pcolormesh(ndata.values, norm=norm, **pcm_prop)
             
                 if show_row_labels:
                     ax_mesh.set_yticks(np.arange(nrows) + 0.5)
@@ -366,7 +366,7 @@ class Viper:
                 # Draw heatmap
                 
                 ax_mesh = fig.add_subplot(gs[1])
-                mesh = ax_mesh.pcolormesh(ndata.values, **pcm_prop)
+                mesh = ax_mesh.pcolormesh(ndata.values, norm=norm, **pcm_prop)
                 
                 if show_row_labels:
                     ax_mesh.set_yticks(np.arange(nrows) + 0.5)
