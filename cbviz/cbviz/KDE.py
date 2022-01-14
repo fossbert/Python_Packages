@@ -23,20 +23,16 @@ class SplitViolin:
         
         self.dtype_options = [('float', *i) for i in product(['object', 'category'], repeat=2)]
         self.scale_factor = scale_factor
-        self.minsize = minsize
-        if s2_colors:
-            self.s2_colors = s2_colors
-        else:
-            self.s2_colors = 'C0', 'C1'
-        
+        self.minsize = minsize        
         # First round of checks tests input DataFrame
         # it's this complicated because the order of variables matters
         # i.e. float goes first, then two object|category variables
         
-        if isinstance(data, pd.DataFrame):            
-            if any([all(data.dtypes == list(dt_opt)) for dt_opt in self.dtype_options]):
+        if isinstance(data, pd.DataFrame):
+            self.data_dtypes_in = np.array([data[col].dtype.name.rstrip('_12346') for col in data.columns])            
+            if any([all(self.data_dtypes_in == np.array(dt_opt)) for dt_opt in self.dtype_options]):
                     self.ylabel, self.s1, self.s2 = data.columns
-                    _, self.s1_dtype, self.s2_dtype = data.dtypes
+                    _, self.s1_dtype, self.s2_dtype = self.data_dtypes_in
                     self.data_in = data.copy()
             else:    
                 raise ValueError(f"DataFrame needs three columns, dtypes allowed are: float - object|category - object|category")
@@ -49,10 +45,10 @@ class SplitViolin:
         # 3.) If order is provided, reorder if provided levels match
         if self.s1_dtype == 'object':
             self.data_in[self.s1] = self.data_in[self.s1].astype('category')
-            self.s1_dtype = self.data_in[self.s1].dtype
+            self.s1_dtype = self.data_in[self.s1].dtype.name
         if self.s2_dtype == 'object':
             self.data_in[self.s2] = self.data_in[self.s2].astype('category')
-            self.s2_dtype = self.data_in[self.s2].dtype
+            self.s2_dtype = self.data_in[self.s2].dtype.name
         
         self.s1_categories = self.data_in[self.s1].cat.categories.to_list()
         self.s2_categories = self.data_in[self.s2].cat.categories.to_list()
@@ -107,8 +103,8 @@ class SplitViolin:
         density = kde(support)
         return pd.DataFrame({'grid':support, 'density':density})
 
-    def get_violins(self):
-        # yield kde curves one by one 
+    def get_violins(self, colors: tuple = ('C0', 'C1')):
+        """Generates KDE information for each subgroup and provides them as namedtuple."""
 
         for i, (s1, subdf1) in enumerate(self.densities.groupby(level=0)):
             for j, (s2, subdf2) in enumerate(subdf1.groupby(level=1)):
@@ -118,11 +114,11 @@ class SplitViolin:
                 density = subdf2['density'].div(subdf2['density'].max()).values
                 if j%2==0:
                     density =  density*-1 + i * self.scale_factor
-                    color = self.s2_colors[0]
+                    color = colors[0]
                     mode_y = np.repeat(grid[density.argmin()], 2)
                 else:
                     density =  density + i * self.scale_factor
-                    color = self.s2_colors[1]
+                    color = colors[1]
                     mode_y = np.repeat(grid[density.argmax()], 2)
                 mode_x = np.array([np.min(density), np.max(density)])
               
