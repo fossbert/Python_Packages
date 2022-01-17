@@ -33,7 +33,7 @@ class SplitViolin:
             if any([all(self.data_dtypes_in == np.array(dt_opt)) for dt_opt in self.dtype_options]):
                     self.ylabel, self.s1, self.s2 = data.columns
                     _, self.s1_dtype, self.s2_dtype = self.data_dtypes_in
-                    self.data_in = data.copy()
+                    self.data_in = data.dropna().copy()
             else:    
                 raise ValueError(f"DataFrame needs three columns, dtypes allowed are: float - object|category - object|category")
         else:
