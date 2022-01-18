@@ -6,20 +6,17 @@ from scipy.stats import gaussian_kde
 from collections import namedtuple
 
 
-
-
 """Functions for univariate distributions"""
 
 class SplitViolin:
     
-    """Container for producing a split violin plot and compute associated statistics"""
+    """Container for producing a split violin plot and compute associated statistics."""
 
     def __init__(self, data:pd.DataFrame,  
                 scale_factor:int = 2,   
                 minsize:int = 5,    
                 s1_order: list = None, 
-                s2_order: list = None, 
-                s2_colors: tuple = None) -> None:
+                s2_order: list = None) -> None:
         
         self.dtype_options = [('float', *i) for i in product(['object', 'category'], repeat=2)]
         self.scale_factor = scale_factor
@@ -125,7 +122,7 @@ class SplitViolin:
                 yield KdeData(name, color, grid, density, Mode(mode_x, mode_y))
 
 
-# These are mostly helper functions/classes
+# These are mostly helper functions/containers
 
 KdeData = namedtuple('KdeData', "name color grid density mode")
 
