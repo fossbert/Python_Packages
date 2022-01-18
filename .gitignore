@@ -9,5 +9,5 @@ __pycache__
 #and cbviz
 !cbviz/
 !cbviz/cbviz/
-
+!Dev_cbviz.ipynb
 
