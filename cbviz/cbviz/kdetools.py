@@ -1,5 +1,4 @@
 # pillars of work
-from tkinter import E
 import numpy as np
 import pandas as pd
 
@@ -13,8 +12,7 @@ from scipy.stats import gaussian_kde
 # documentation 
 from typing import Union
 
-"""Functions for univariate distributions"""
-
+"""Functions for illustrating gaussian kernel density estimates"""
 
 
 class Ridge:
@@ -62,7 +60,7 @@ class Ridge:
             if any([all(self.data_dtypes_in == np.array(dt_opt)) for dt_opt in self.dtype_options]):
                 self.ylabel, self.s1 = data.columns
                 _, self.s1_dtype = self.data_dtypes_in
-                self.data_in = data.dropna().copy()
+                self.data_in = data.copy() # NaN are not removed
             else: 
                 raise ValueError(err_out)
 
