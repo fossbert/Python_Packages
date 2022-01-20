@@ -1,5 +1,6 @@
 # computing
 from collections import namedtuple
+from multiprocessing.sharedctypes import Value
 from os import name
 from warnings import warn
 import numpy as np
@@ -8,7 +9,7 @@ import pandas as pd
 # plotting
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
-from matplotlib.patches import Patch
+from matplotlib.patches import Patch, Rectangle, ConnectionPatch
 from adjustText import adjust_text
 
 # stats
@@ -55,14 +56,12 @@ class XYpairs:
 
             return sorted([(i, j) for i, j in zip(rowindex, colindex)])
         
-    def add_gridspec(self, fig=None, **gridspec_kwargs):
+    def get_gridspec(self, fig=None, **gridspec_kwargs):
         
         if fig is None:
             fig = plt.gcf()
     
-        gs = fig.add_gridspec(nrows= self.gridn , ncols= self.gridn , **gridspec_kwargs)
-        
-        return gs
+        return fig.add_gridspec(nrows= self.gridn , ncols= self.gridn , **gridspec_kwargs)
     
     def get_pairs(self, **xyview_kwargs):
         
@@ -82,7 +81,6 @@ class XYview:
     def __init__(self, 
                     data:pd.DataFrame,  
                     highlight: list = None,
-                    pearson_label_kw: dict = None,
                     **scatter_kwargs):
 
         """[summary]
@@ -213,12 +211,64 @@ class XYview:
 
 class XYzoom:
     
-    def __init__(self, data) -> None:
+    def __init__(self, data, xrange:tuple, yrange:tuple) -> None:
         
         self.data = DataNum(data, ncols=2)
+        self.xlabel, self.ylabel = self.data.var_names
+        self.xmin, self.ymin = self.data.df.min().values
+        self.xmax, self.ymax = self.data.df.max().values
+    
+        self.zoom_xmin, self.zoom_xmax = self._deduce_range(xrange, 'x')
+        self.zoom_ymin, self.zoom_ymax = self._deduce_range(yrange, 'y')
+        
+        
+    def __repr__(self) -> str:
+        return  (f"XYzoom(X: {self.xlabel}, Y: {self.ylabel}\n"
+                f"Observations: {len(self.data.df)}\n"
+                f"Zoom area: X ({self.zoom_xmin:.2f} -> {self.zoom_xmax:.2f}), Y ({self.zoom_ymin:.2f} -> {self.zoom_ymax:.2f})")
+        
+    def _deduce_range(self, range: tuple, which:str):
+           
+        combo = ''.join([str(i) for i in range])
+         
+        if combo.startswith('min') & combo.endswith('max'):
+            
+            return (self.xmin, self.xmax) if which == 'x' else (self.ymin, self.ymax)
+        
+        elif combo.startswith('min'):
+            
+            upper = range[1]
+            
+            return (self.xmin, upper) if which == 'x' else (self.ymin, upper)
+        
+        elif combo.endswith('max'):
+            
+            lower = range[0]
+        
+            return (lower, self.xmax) if which == 'x' else (lower, self.ymax)
+    
+        else:
+            
+            try:
+                
+                return [float(i) for i in range]
+     
+            except ValueError:
+                
+                valid = ['(min, max)', '(min, 2)', '(0, max)', '(-3, 2)']
+                print(f"Valid examples: {', '.join(valid)} - got: {combo}") 
+                raise
+          
+             
 
+             
+        
+#     def _filter(self, data, xrange, yrange):
+        
+#         query = f"{self."
 
-
+#         xy_rect = sub[['sel', 'tra']].agg(['min', 'max']).loc['min'].values
+# rect_w, rect_h = sub[['sel', 'tra']].agg(['min', 'max']).apply(lambda x: abs(x[0]-x[1]), axis=0).values
 
 ## Data containers
 
