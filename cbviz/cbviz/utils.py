@@ -7,7 +7,6 @@ from collections import namedtuple
 """Functions and classes used by most other modules"""
 
 
-
 class DataNum:
 
     """[Most classes use a pandas DataFrame providing numeric and possibly categorical order and data type.]
