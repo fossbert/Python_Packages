@@ -42,22 +42,28 @@ class DataNum:
         if not all(expected == observed):
             raise TypeError(f"Expected {len(expected)} numeric columns, got {np.sum(observed=='floating')}")
 
+
+
 class DataMix(DataNum):
 
     """[This class prepares and checks DataFrames containing a numeric and one or two categorical variables]
     """
 
-    def __init__(self, data:pd.DataFrame, ncat: int = None) -> None:
+    def __init__(self, data:pd.DataFrame, ncat: int = 1, minsize:int = 5) -> None:
         
         super()._check_df(data)
         self.ncat = ncat
-        self._check_dtypes(data, self.ncat)
         self.df = data
+        self.dtypes = self._check_dtypes(data, self.ncat)
         self.var_names = self.df.columns.to_list()
         self.nans = (len(self.df) - self.df.count()).sum()
+        self.minsize = self._check_minsize(minsize)
 
     def __repr__(self) -> str:
-        return super().__repr__()
+        
+        return (f"DataNum(Obs total: {len(self.df)}, " 
+                f"Features: {len(self.var_names)}, Total NaN: {self.nans}, "
+                f"Obs in smallest subgroup: {self.minsize})")
  
     def _check_dtypes(self, data, ncat):
         
@@ -65,10 +71,32 @@ class DataMix(DataNum):
         observed = data.apply(infer_dtype).values
         
         if ncat+1 != len(observed):
-            raise ValueError(f'Number of columns expected: {len(ncat+1)}, got: {len(observed)}')
+            raise ValueError(f'Number of columns expected: {ncat+1}, got: {len(observed)}')
         
         if not any([all(np.array(exp) == observed) for exp in expected_list]):
             raise TypeError(f"Could not verify data types, need: floating then {ncat} * string|categorical")
 
-            
+        return observed
 
+
+    def _check_minsize(self, minsize: int):
+
+        minsize_observed = self.df.groupby(self.var_names[1:]).count().values.ravel().min()
+        if  minsize_observed < minsize:
+            raise AssertionError(f"Need at least {minsize} observations per subgroup, found minimum of {minsize_observed }!")
+
+        else:
+            return minsize_observed
+        
+        
+        
+
+def _cut_p(pval):
+    if pval < 0.001:
+        return "***"
+    elif pval < 0.01:
+        return '**'
+    elif pval < 0.05:
+        return "*"
+    else:
+        return 'ns'

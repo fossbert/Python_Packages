@@ -6,11 +6,17 @@ import pandas as pd
 from itertools import product
 from collections import namedtuple
 
+
+# Plotting
+from matplotlib.lines import Line2D
+
 # stats
 from scipy.stats import gaussian_kde
 
 # documentation 
 from typing import Union
+
+from cbviz.cbviz.utils import DataMix
 
 """Functions for illustrating gaussian kernel density estimates"""
 
@@ -42,65 +48,41 @@ class Ridge:
                 minsize:int = 5,    
                 s1_order: list = None) -> None:
         
-        self.dtype_options = [('float', "object"), ("float", 'category')]
-        self.scale_factor = scale_factor
-        self.minsize = minsize        
-        # First round of checks tests input DataFrame
-        # i.e. float goes first, then one object|category variable
         
-        if isinstance(data, pd.DataFrame):
-            
-            err_out = "DataFrame needs two columns, dtypes allowed are: float - object|category"
-            
-            if len(data.columns)!=2:
-                raise ValueError(err_out)
-            
-            self.data_dtypes_in = np.array([data[col].dtype.name.rstrip('_12346') for col in data.columns])
-            
-            if any([all(self.data_dtypes_in == np.array(dt_opt)) for dt_opt in self.dtype_options]):
-                self.ylabel, self.s1 = data.columns
-                _, self.s1_dtype = self.data_dtypes_in
-                self.data_in = data.copy() # NaN are not removed
-            else: 
-                raise ValueError(err_out)
-
-        else:
-            raise ValueError('Need a pandas DataFrame')
+        self.data = DataMix(data, ncat=1, minsize=minsize)
+        self.ylabel, self.s1 = self.data.var_names
+        _, self.s1_dtype = self.data.dtypes
+        self.scale_factor = scale_factor
         
         # Second checks the split variable: 
         # 1.) Do they need conversion ? 
         # 2.) s1 needs at least one level
         # 3.) If order is provided, reorder if provided levels match
-        if self.s1_dtype == 'object':
-            self.data_in[self.s1] = self.data_in[self.s1].astype('category')
-            self.s1_dtype = self.data_in[self.s1].dtype.name
+        if self.s1_dtype == 'string':
+            self.data.df[self.s1] = self.data.df[self.s1].astype('category')
+            self.s1_dtype = 'categorical'
 
-        self.s1_categories = self.data_in[self.s1].cat.categories.to_list()
+        self.s1_categories = self.data.df[self.s1].cat.categories.to_list()
         
         if len(self.s1_categories) < 1:
             raise ValueError(f'There is not a single level for {self.s1}') 
         
         if s1_order:
              if all([s1_lvl in self.s1_categories for s1_lvl in s1_order]):
-                 self.data_in[self.s1] = self.data_in[self.s1].cat.reorder_categories(s1_order)
+                 self.data.df[self.s1] = self.data.df[self.s1].cat.reorder_categories(s1_order)
                  self.s1_categories = s1_order
              else:
                  raise ValueError(f'Could not align levels, provided: {", ".join(s1_order)}, available: {", ".join(self.s1_categories)}')
     
-        # Third check: need to make sure every combination of factors occurs often enough 
-        self.minsize_observed = self.data_in.groupby(self.s1).count().values.ravel().min()
-        if  self.minsize_observed < self.minsize:
-            raise AssertionError(f"Need at least {self.minsize} observations per subgroup, found minimum of {self.minsize_observed }!")
-
         # Once we made it past all these checks, we can start with some calculations
         # sharing is easy between Ridge and SplitViolin
-        self.densities = _get_grids_and_densities(self.data_in, self.ylabel, self.s1)
+        self.densities = _get_grids_and_densities(self.data.df, self.ylabel, self.s1)
 
     def __repr__(self) -> str:
         return (
             f"Ridge(Numeric variable: {self.ylabel}\n "
             f"Split 1: {self.s1}, levels: {len(self.s1_categories)}\n"
-            f"Total data points: {len(self.data_in)})"
+            f"Total data points: {len(self.data.df)})"
         )
 
     def get_kdes(self, colors: tuple = None):
@@ -114,13 +96,15 @@ class Ridge:
             mode_y = np.repeat(grid[density.argmax()], 2)
             mode_x = np.array([np.min(density), np.max(density)])
             
-            color = color[i] if colors else '0.5'
+            color = colors[i] if colors else '0.5'
             
             yield KdeData(s1, color, grid, density, Mode(mode_x, mode_y))
             
     def get_s1_ticks(self):
     
         return [np.arange(0, len(self.s1_categories))*self.scale_factor, self.s1_categories]
+
+
 
 class SplitViolin:
     
@@ -132,45 +116,25 @@ class SplitViolin:
                 s1_order: list = None, 
                 s2_order: list = None) -> None:
         
-        self.dtype_options = [('float', *i) for i in product(['object', 'category'], repeat=2)]
-        self.scale_factor = scale_factor
-        self.minsize = minsize        
-        # First round of checks tests input DataFrame
-        # it's this complicated because the order of variables matters
-        # i.e. float goes first, then two object|category variables
-        
-        if isinstance(data, pd.DataFrame):
-            
-            # So it's a DataFrame, further check will always message same
-            err_out = "DataFrame needs three columns, dtypes allowed are: float - object|category - object|category"
-            
-            if len(data.columns)!=3:
-                raise ValueError(err_out)
-            
-            self.data_dtypes_in = np.array([data[col].dtype.name.rstrip('_12346') for col in data.columns])
-                
-            if any([all(self.data_dtypes_in == np.array(dt_opt)) for dt_opt in self.dtype_options]):
-                self.ylabel, self.s1, self.s2 = data.columns
-                _, self.s1_dtype, self.s2_dtype = self.data_dtypes_in
-                self.data_in = data.dropna().copy()
-            else: 
-                raise ValueError(err_out)
-        else:
-            raise ValueError('Need a pandas DataFrame')
-        
+        self.data = DataMix(data, ncat=2, minsize=minsize)
+        self.ylabel, self.s1, self.s2 = self.data.var_names
+        _, self.s1_dtype, self.s2_dtype = self.data.dtypes
+        self.scale_factor = scale_factor    
+    
         # Second checks the split variables: 
         # 1.) Do they need conversion ? 
         # 2.) s2 can only have two levels, s1 needs at least one level
         # 3.) If order is provided, reorder if provided levels match
-        if self.s1_dtype == 'object':
-            self.data_in[self.s1] = self.data_in[self.s1].astype('category')
-            self.s1_dtype = self.data_in[self.s1].dtype.name
-        if self.s2_dtype == 'object':
-            self.data_in[self.s2] = self.data_in[self.s2].astype('category')
-            self.s2_dtype = self.data_in[self.s2].dtype.name
+        if self.s1_dtype == 'string':
+            self.data.df[self.s1] = self.data.df[self.s1].astype('category')
+            self.s1_dtype = 'categorical'
+            
+        if self.s2_dtype == 'string':
+            self.data.df[self.s2] = self.data.df[self.s2].astype('category')
+            self.s2_dtype = 'categorical'
         
-        self.s1_categories = self.data_in[self.s1].cat.categories.to_list()
-        self.s2_categories = self.data_in[self.s2].cat.categories.to_list()
+        self.s1_categories = self.data.df[self.s1].cat.categories.to_list()
+        self.s2_categories = self.data.df[self.s2].cat.categories.to_list()
         
         if s2_ncat := len(self.s2_categories) != 2:
             raise ValueError(f'Need 2 levels for {self.s2}, found {s2_ncat}') 
@@ -180,32 +144,27 @@ class SplitViolin:
         
         if s1_order:
              if all([s1_lvl in self.s1_categories for s1_lvl in s1_order]):
-                 self.data_in[self.s1] = self.data_in[self.s1].cat.reorder_categories(s1_order)
+                 self.data.df[self.s1] = self.data.df[self.s1].cat.reorder_categories(s1_order)
                  self.s1_categories = s1_order
              else:
                  raise ValueError(f'Could not align levels, provided: {", ".join(s1_order)}, available: {", ".join(self.s1_categories)}')
         
         if s2_order:
             if all([s2_lvl in self.s2_categories for s2_lvl in s2_order]):
-                self.data_in[self.s2] = self.data_in[self.s2].cat.reorder_categories(s2_order)
+                self.data.df[self.s2] = self.data.df[self.s2].cat.reorder_categories(s2_order)
                 self.s2_categories = s2_order
             else:
                 raise ValueError(f'Could not align levels, provided: {", ".join(s2_order)}, available: {", ".join(self.s2_categories)}')
     
-        # Third check: need to make sure every combination of factors occurs often enough 
-        self.minsize_observed = self.data_in.groupby([self.s1, self.s2]).count().values.ravel().min()
-        if  self.minsize_observed < self.minsize:
-            raise AssertionError(f"Need at least {self.minsize} observations per subgroup, found minimum of {self.minsize_observed }!")
-
         # Once we made it past all these checks, we can start with some calculations
-        self.densities = _get_grids_and_densities(self.data_in, self.ylabel, self.s1, self.s2)
+        self.densities = _get_grids_and_densities(self.data.df, self.ylabel, self.s1, self.s2)
 
     def __repr__(self) -> str:
         return (
             f"SplitViolin(Numeric variable: {self.ylabel}\n "
             f"Split 1: {self.s1}, levels: {len(self.s1_categories)}\n"
             f"Split 2: {self.s2}, levels: {len(self.s2_categories)}\n "
-            f"Total data points: {len(self.data_in)})"
+            f"Total data points: {len(self.data.df)})"
         )
 
     def get_violins(self, colors: tuple = ('C0', 'C1')):
@@ -232,6 +191,19 @@ class SplitViolin:
     def get_s1_ticks(self):
         
         return [range(0, len(self.s1_categories)*self.scale_factor, 2), self.s1_categories]
+    
+    
+    def get_s2_legend(self, colors: tuple = ('C0', 'C1'), **line2d_kwargs):
+        
+        line2d_props = {'marker':'s', 'color':'w', 'markersize':6}
+        
+        if len(line2d_kwargs)>0:
+            for k,v in line2d_kwargs.items():
+                line2d_props.update({k:v})
+                
+        return [Line2D([0], [0], markerfacecolor=col, label=cat, **line2d_props) for cat, col in zip(self.s2_categories, colors)]
+        
+        
     
 ####################################################
 ##                                                ##
