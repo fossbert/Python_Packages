@@ -3,8 +3,8 @@ import numpy as np
 import pandas as pd
 
 # tools and stats
-from itertools import combinations, product
-from collections import namedtuple
+from itertools import combinations
+# from collections import namedtuple
 
 # Plotting
 import matplotlib.pyplot as plt
@@ -14,7 +14,7 @@ from matplotlib.patches import Patch
 from cbviz.cbviz.utils import DataMix, _cut_p
 
 # stats
-from scipy.stats import kruskal, f_oneway, ttest_ind, mannwhitneyu
+from scipy.stats import (kruskal, f_oneway, ttest_ind, mannwhitneyu)
 from statsmodels.stats.multitest import multipletests
 
 # documentation 
@@ -24,8 +24,12 @@ from typing import Union
 
 
 class StripBox:
+
+    """[Class to hold and process numeric data across one categorical variable holding at least two ]
+    """
     
-    def __init__(self, data:pd.DataFrame, 
+    def __init__(self, 
+                data:pd.DataFrame, 
                  jitter: float = 0.08,
                  p_method_global:str = 'Kruskal',
                  s1_order: list = None,
@@ -92,19 +96,21 @@ class StripBox:
         
         if method not in options:
             raise ValueError(f'Valid global value methods are: {", ".join(options)}, got: {method}')
+
+        alternatives = {'Kruskal':'MWU', 'Anova':"Welch"}
         
-        if method == 'Kruskal':
-            _, pval = kruskal(*self._get_data())
+        if len(self.s1_categories)<3:
+            _, pval = mannwhitneyu(*self._get_data()) if method=='Kruskal' else ttest_ind(*self._get_data(), equal_var=False)
+            self.p_method_global = alternatives.get(method)
         else:
-            _, pval = f_oneway(*self._get_data())
+            _, pval = kruskal(*self._get_data()) if method == 'Kruskal' else f_oneway(*self._get_data())
             
         return pval
     
     def calc_pairwise_p(self, pair_method:str='welch', adj_method:str='fdr_bh'):
         
         box_values = self._get_data()
-        
-        box_max_values = [np.max(i) for i in box_values]
+        box_max_values, box_min_values = list(zip(*[(np.max(i), np.min(i)) for i in box_values]))
          
         pair_options = ['welch', 'mannwhitneyu']
         
@@ -124,7 +130,8 @@ class StripBox:
             
             contrast = (self.s1_categories[i], self.s1_categories[j])
             xpos = (i+1, j+1)
-            ypos = (box_max_values[i], box_max_values[j])
+            ymax = (box_max_values[i], box_max_values[j])
+            ymin = (box_min_values[i], box_min_values[j])
             
             if pair_method == 'Welch':
                 _, pval = ttest_ind(box_values[i], box_values[j], equal_var=False)
@@ -132,18 +139,18 @@ class StripBox:
                 _, pval = mannwhitneyu(box_values[i], box_values[j])
     
             index.append(contrast)
-            data.append((xpos, ypos, pval))
+            data.append((xpos, ymax, ymin, pval))
             
         index_mult = pd.MultiIndex.from_tuples(index, names=["GroupA", "GroupB"])
-        
-        df = pd.DataFrame(data,  index=index_mult, columns=['xpos', 'ypos', 'pval'])
-        padj =  multipletests(df['pval'].values, method=adj_method)[1]
-        df.insert(3, 'padj', padj)
+        df = pd.DataFrame(data,  index=index_mult, columns=['xpos', 'ymax', 'ymin', 'pval'])
+        if len(df)>1:
+            padj =  multipletests(df['pval'].values, method=adj_method)[1]
+            df.insert(4, 'padj', padj)
         
         self.pairwise_stats = df
         
     
-    def box(self, ax=None, **boxplot_kwargs):
+    def boxplt(self, ax=None, **boxplot_kwargs):
         
         if ax is None:
             ax = plt.gca()
@@ -183,8 +190,13 @@ class StripBox:
         return ax
 
 
-    def add_pair_p(self,groupA:str, groupB:str, cut_p=False, 
-                   ax=None, yoffset:float=0.2, line_kwargs:dict=None, **text_kwargs):
+    def add_pair_p(self,
+                   groupA:str, 
+                   groupB:str, 
+                   yoffset:float=0.2, 
+                   connect_top: bool =True,
+                   cut_p:bool=False, 
+                   ax=None,line_kwargs:dict=None, **text_kwargs):
         
         if ax is None:
             ax = plt.gca()
@@ -201,10 +213,20 @@ class StripBox:
             
         try:
             subseries = self.pairwise_stats.loc[groupA].loc[groupB]
-            (x0, x1), (y0, y1) = subseries.xpos, subseries.ypos
-            ax.plot([x0, x0, x1, x1], [y0+yoffset, y1+yoffset*2, y1+yoffset*2, y1+yoffset], **line_props)
-            pstring = _cut_p(subseries.padj) if cut_p else f'{subseries.padj:1.2e}'
-            ax.text((x1+x0)/2, y1+yoffset*2, pstring, **text_props)
+            xpos = np.repeat(subseries.xpos, 2)
+            xtext = np.sum(subseries.xpos)/2
+            if connect_top:
+                ypos = _get_connect_lines(subseries.ymax, yoffset)
+                ytext = np.max(ypos)
+            else:
+                ypos = _get_connect_lines(subseries.ymin, yoffset, top=False)
+                ytext = np.min(ypos)
+    
+            ax.plot(xpos, ypos, **line_props)
+            pval = subseries.padj if 'padj' in subseries else subseries.pval
+            pstring = _cut_p(pval) if cut_p else f'{pval:1.2e}'
+            ax.text(xtext, ytext, pstring, **text_props)
+        
         except AttributeError:
             print(f'Could not find stat DataFrame')
             raise
@@ -228,3 +250,21 @@ def _get_jitter_and_colors(data:pd.DataFrame, x:str, jitter:float, loc:int, colo
     
     return pd.DataFrame({'x':xvals, 'y':yvals, 'c':color_vec})
 
+
+def _get_connect_lines(ys, offset, top=True):
+
+    """[Helper function that when given two values will generate a list of 4 y values to define a connection line
+    between the two points.]
+
+    Returns:
+        [list]: [containing a numeric y values for a connection line between two boxplots]
+    """
+
+    off_mult = (1, 2, 2, 1)
+
+    if top:
+        ycourse = np.repeat(ys, (3,1)) if np.argmax(ys)==0 else np.repeat(ys, (1,3))
+        return [y+offset*i for y, i in zip(ycourse, off_mult)]  
+    else:
+        ycourse = np.repeat(ys, (3,1)) if np.argmin(ys)==0 else np.repeat(ys, (1,3))
+        return [y-offset*i for y, i in zip(ycourse, off_mult)]

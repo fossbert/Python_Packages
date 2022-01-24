@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 
 # type checking
-from pandas.api.types import infer_dtype 
+from pandas.api.types import infer_dtype, is_categorical_dtype
 from itertools import product
 # as usual
 from collections import namedtuple
@@ -20,7 +20,7 @@ class DataNum:
         self._check_df(data)
         self.ncols = ncols if ncols else len(data.columns)
         self._check_dtypes(data, self.ncols)
-        self.df = data
+        self.df = data.copy()
         self.var_names = self.df.columns.to_list()
         self.nans = (len(  self.df) - self.df.count()).sum()
 
@@ -53,8 +53,8 @@ class DataMix(DataNum):
         
         super()._check_df(data)
         self.ncat = ncat
-        self.df = data
         self.dtypes = self._check_dtypes(data, self.ncat)
+        self.df = data.copy().apply(cat_cleaner)
         self.var_names = self.df.columns.to_list()
         self.nans = (len(self.df) - self.df.count()).sum()
         self.minsize = self._check_minsize(minsize)
@@ -86,9 +86,14 @@ class DataMix(DataNum):
             raise AssertionError(f"Need at least {minsize} observations per subgroup, found minimum of {minsize_observed }!")
 
         else:
-            return minsize_observed
-        
-        
+            return minsize_observed        
+
+
+def cat_cleaner(series):
+    if is_categorical_dtype(series):
+        return series.cat.remove_unused_categories()
+    else:
+        return series
         
 
 def _cut_p(pval):
