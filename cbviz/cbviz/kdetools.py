@@ -16,7 +16,7 @@ from scipy.stats import gaussian_kde
 # documentation 
 from typing import Union
 
-from cbviz.cbviz.utils import DataMix
+from .utils import DataMix
 
 """Functions for illustrating gaussian kernel density estimates"""
 

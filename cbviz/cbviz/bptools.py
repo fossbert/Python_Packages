@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
 
 # Utils
-from cbviz.cbviz.utils import DataMix, _cut_p
+from .utils import DataMix, _cut_p
 
 # stats
 from scipy.stats import (kruskal, f_oneway, ttest_ind, mannwhitneyu)
