@@ -24,6 +24,11 @@ from itertools import combinations
 """Functions for illustrating relationships between two numeric variables"""
 
 
+class Dotplot:
+    pass
+    
+
+
 class XYpairs:
 
 

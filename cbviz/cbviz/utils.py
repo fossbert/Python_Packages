@@ -19,7 +19,8 @@ class DataNum:
         
         self._check_df(data)
         self.ncols = ncols if ncols else len(data.columns)
-        self._check_dtypes(data.copy().apply(int_cleaner), self.ncols)
+        # integer columns get converted without telling anyone
+        self._check_dtypes(data.copy().apply(int_cleaner), self.ncols) 
         self.df = data.copy()
         self.var_names = self.df.columns.to_list()
         self.nans = (len(  self.df) - self.df.count()).sum()
@@ -40,7 +41,7 @@ class DataNum:
             raise ValueError(f'Number of columns expected: {len(expected)}, got: {len(observed)}')
         
         if not all(expected == observed):
-            raise TypeError(f"Expected {len(expected)} numeric columns, got {np.sum(observed=='floating')}")
+            raise TypeError(f"Expected {len(expected)} float columns, got {np.sum(observed=='floating')}")
 
 
 
