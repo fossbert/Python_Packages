@@ -90,6 +90,21 @@ class DataMix(DataNum):
             return minsize_observed        
 
 
+
+
+class DataDot(DataNum):
+
+    def __init__(self, data: pd.DataFrame, ncols: int = None) -> None:
+        super().__init__(data, ncols)
+
+
+
+
+
+
+
+### Helper functions from here on
+
 def cat_cleaner(series):
     if is_categorical_dtype(series):
         return series.cat.remove_unused_categories()
@@ -103,8 +118,6 @@ def int_cleaner(series):
     else:
         return series
         
-
-
 def _cut_p(pval):
     if pval < 0.001:
         return "***"

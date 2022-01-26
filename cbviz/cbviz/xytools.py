@@ -25,7 +25,9 @@ from itertools import combinations
 
 
 class Dotplot:
-    pass
+    
+    def __init__(self, data, size:np.ndarray, color:np.ndarray=None) -> None:
+        pass
     
 
 
