@@ -1,3 +1,4 @@
+from unicodedata import name
 import numpy as np
 import pandas as pd
 
@@ -94,16 +95,50 @@ class DataMix(DataNum):
 
 class DataDot(DataNum):
 
-    def __init__(self, data: pd.DataFrame, ncols: int = None) -> None:
-        super().__init__(data, ncols)
+    def __init__(self, data: pd.DataFrame, x:str, y:str, size:str, color:str=None, fillna:tuple = None) -> None:
 
+        super()._check_df(data)
+        self.var_names = Vars(x, y, size, color)
+        self.n_numeric = 2 if color else 1
+        self._check_var_names(self.var_names, data)
+        self.dtypes = self._check_dtypes(data, self.n_numeric)
+        self.df = data[list(self.var_names)].copy().apply(cat_cleaner)
+        self.ncols, self.nrows, *_ = self.df.nunique()
 
+    def __repr__(self) -> str:
+        return (f"DataDot(Obs total: {len(self.df)}, " 
+                f"X and Y variables: {', '.join([self.var_names.x, self.var_names.y])}. "
+                f"Shape: {self.nrows} rows, {self.ncols} columns, "
+                f"Number of annotating features {self.n_numeric})")        
+
+    def _check_var_names(self, vars:tuple, data: pd.DataFrame):
+        
+        if not all([var in data.columns for var in vars if var]):
+            raise KeyError(f'Could not find all provided keys ({", ".join(vars)}) in DataFrame')
+        
+
+    def _check_dtypes(self, data, n_numeric):
+
+        expected_list = [(*x, *y) for x in  list(product(['string', 'categorical'], repeat=2)) for y in list(product(['integer', 'floating'], repeat=n_numeric))]
+        observed = data.apply(infer_dtype).values
+        
+        if n_numeric+2 != len(observed):
+            raise ValueError(f'Number of columns expected: {n_numeric+2}, got: {len(observed)}')
+        
+        if not any([all(np.array(exp) == observed) for exp in expected_list]):
+            raise TypeError(f"Could not verify data types, need: 2*string|categorical, then {n_numeric}*integer|floating")
+
+        return observed
+
+      
 
 
 
 
 
 ### Helper functions from here on
+
+Vars = namedtuple('Vars', 'x y size color')
 
 def cat_cleaner(series):
     if is_categorical_dtype(series):
