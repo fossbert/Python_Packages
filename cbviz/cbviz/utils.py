@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 
 # type checking
-from pandas.api.types import infer_dtype, is_categorical_dtype
+from pandas.api.types import infer_dtype, is_categorical_dtype, is_integer_dtype
 from itertools import product
 # as usual
 from collections import namedtuple
@@ -19,7 +19,7 @@ class DataNum:
         
         self._check_df(data)
         self.ncols = ncols if ncols else len(data.columns)
-        self._check_dtypes(data, self.ncols)
+        self._check_dtypes(data.copy().apply(int_cleaner), self.ncols)
         self.df = data.copy()
         self.var_names = self.df.columns.to_list()
         self.nans = (len(  self.df) - self.df.count()).sum()
@@ -94,7 +94,15 @@ def cat_cleaner(series):
         return series.cat.remove_unused_categories()
     else:
         return series
+
+
+def int_cleaner(series):
+    if is_integer_dtype(series):
+        return series.astype('float')
+    else:
+        return series
         
+
 
 def _cut_p(pval):
     if pval < 0.001:
