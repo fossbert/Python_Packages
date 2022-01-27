@@ -95,7 +95,7 @@ class DataMix(DataNum):
 
 class DataDot(DataNum):
 
-    def __init__(self, data: pd.DataFrame, x:str, y:str, size:str, color:str=None, fillna:tuple = None) -> None:
+    def __init__(self, data: pd.DataFrame, x:str, y:str, size:str, color:str=None) -> None:
 
         super()._check_df(data)
         self.var_names = Vars(x, y, size, color)
@@ -109,7 +109,7 @@ class DataDot(DataNum):
         return (f"DataDot(Obs total: {len(self.df)}, " 
                 f"X and Y variables: {', '.join([self.var_names.x, self.var_names.y])}. "
                 f"Shape: {self.nrows} rows, {self.ncols} columns, "
-                f"Number of annotating features {self.n_numeric})")        
+                f"Number of annotating features: {self.n_numeric})")        
 
     def _check_var_names(self, vars:tuple, data: pd.DataFrame):
         
