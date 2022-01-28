@@ -692,7 +692,7 @@ class GseaReg(Gsea1T):
                         **ges_prop)
             
             # second graph: bars to indicate positions of FIRST GENE SET genes
-            ax_evt1 = fig.add_subplot(gs[1,0])
+            ax_evt1 = fig.add_subplot(gs[1,0], sharex=ax_ges)
             ax_evt1.eventplot(self.gs_idx_1, **evt_prop_1)
             ax_evt1.axis('off')
 
@@ -712,7 +712,7 @@ class GseaReg(Gsea1T):
             ax_rs.spines['bottom'].set_visible(False)
             
             # fourth graph: bars to indicate positions of SECOND GENE SET genes
-            ax_evt2 = fig.add_subplot(gs[3,0])
+            ax_evt2 = fig.add_subplot(gs[3,0], sharex=ax_rs)
             ax_evt2.eventplot(self.gs_idx_2, **evt_prop_2)
             ax_evt2.set_yticks([])
             ax_evt2.tick_params(labelsize='x-small')

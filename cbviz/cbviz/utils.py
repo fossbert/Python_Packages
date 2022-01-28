@@ -102,7 +102,7 @@ class DataDot(DataNum):
         self.n_numeric = 2 if color else 1
         self._check_var_names(self.var_names, data)
         self.dtypes = self._check_dtypes(data, self.n_numeric)
-        self.df = data[list(self.var_names)].copy().apply(cat_cleaner)
+        self.df = data[[var for var in self.var_names if var]].copy().apply(cat_cleaner) # Messy! 
         self.ncols, self.nrows, *_ = self.df.nunique()
 
     def __repr__(self) -> str:

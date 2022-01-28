@@ -155,7 +155,7 @@ def _stats_legend(nes: float,
     nes, pval = f"NES: {nes:1.2f}", f"p: {pval:1.1e}"
       
     leg = ax.legend([ptch]*2, [nes, pval], **leg_prop)
-    leg.get_frame().set_linewidth(0.2)
+    leg.get_frame().set_linewidth(0.5)
     plt.setp(leg.get_title(), color=leg_prop.get('labelcolor'))
         
     return leg
@@ -197,7 +197,7 @@ def _add_reg_legend(color_pos:str,
     handles = [Line2D([0],[0], lw=2, color=color_pos), Line2D([0],[0], lw=2, color=color_neg)]
 
     leg = ax.legend(handles, ['positive', 'negative'], **leg_prop)
-    leg.get_frame().set_linewidth(0.2)
+    leg.get_frame().set_linewidth(0.5)
     
     return leg
 
