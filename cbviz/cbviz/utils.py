@@ -19,9 +19,10 @@ class DataNum:
     def __init__(self, data:pd.DataFrame, ncols: int = None) -> None:
         
         self._check_df(data)
+        data = data.apply(series_cleaner)
         self.ncols = ncols if ncols else len(data.columns)
         # integer columns get converted without telling anyone
-        self._check_dtypes(data.copy().apply(int_cleaner), self.ncols) 
+        self._check_dtypes(data, self.ncols) 
         self.df = data.copy()
         self.var_names = self.df.columns.to_list()
         self.nans = (len(  self.df) - self.df.count()).sum()
@@ -54,9 +55,10 @@ class DataMix(DataNum):
     def __init__(self, data:pd.DataFrame, ncat: int = 1, minsize:int = 5) -> None:
         
         super()._check_df(data)
+        data = data.apply(series_cleaner)
         self.ncat = ncat
         self.dtypes = self._check_dtypes(data, self.ncat)
-        self.df = data.copy().apply(cat_cleaner)
+        self.df = data.copy()
         self.var_names = self.df.columns.to_list()
         self.nans = (len(self.df) - self.df.count()).sum()
         self.minsize = self._check_minsize(minsize)
@@ -91,18 +93,17 @@ class DataMix(DataNum):
             return minsize_observed        
 
 
-
-
 class DataDot(DataNum):
 
     def __init__(self, data: pd.DataFrame, x:str, y:str, size:str, color:str=None) -> None:
 
         super()._check_df(data)
+        data = data.apply(series_cleaner)
         self.var_names = Vars(x, y, size, color)
         self.n_numeric = 2 if color else 1
         self._check_var_names(self.var_names, data)
         self.dtypes = self._check_dtypes(data, self.n_numeric)
-        self.df = data[[var for var in self.var_names if var]].copy().apply(cat_cleaner) # Messy! 
+        self.df = data[[var for var in self.var_names if var]].copy().apply(series_cleaner) # Messy! 
         self.ncols, self.nrows, *_ = self.df.nunique()
 
     def __repr__(self) -> str:
@@ -140,16 +141,14 @@ class DataDot(DataNum):
 
 Vars = namedtuple('Vars', 'x y size color')
 
-def cat_cleaner(series):
+def series_cleaner(series):
+    
     if is_categorical_dtype(series):
         return series.cat.remove_unused_categories()
-    else:
-        return series
-
-
-def int_cleaner(series):
-    if is_integer_dtype(series):
+    
+    elif is_integer_dtype(series):
         return series.astype('float')
+    
     else:
         return series
         
