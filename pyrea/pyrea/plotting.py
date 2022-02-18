@@ -205,7 +205,7 @@ def _add_reg_legend(color_pos:str,
 def _plot_ledge_labels(ledge_sub:pd.DataFrame, 
                        left_end_closer: bool, 
                        ledge_xinfo:tuple, 
-                        text_kw:dict, 
+                       text_kw:dict, 
                        highlight:list=None,
                        line_kw:dict=None, 
                        ax=None):
@@ -228,25 +228,23 @@ def _plot_ledge_labels(ledge_sub:pd.DataFrame,
     else:
         y_course = [1, 0.95, 0.75]
         gene_name_y = 0.7
-        text_prop.update({"va":"top"})
+        text_kw.update({"va":"top"})
         df['gene_name_xposition'] = np.linspace(xmax, xmin, len(df))
     
     [ax.plot([row.index, row.index, row.gene_name_xposition], y_course, **line_prop) for row in df.itertuples()]
     
-    if text_kw:
-        text_prop.update(text_kw)
         
     for row in df.itertuples():
         if highlight:
-            text_prop_highlight = text_prop.copy()            
+            text_prop_highlight = text_kw.copy()            
             text_prop_highlight.update({'fontweight':'bold', 'color':'r'})
 
             if row.gene in highlight:
                 ax.text(row.gene_name_xposition, gene_name_y, row.gene, **text_prop_highlight)
             else: 
-                ax.text(row.gene_name_xposition, gene_name_y, row.gene, **text_prop)
+                ax.text(row.gene_name_xposition, gene_name_y, row.gene, **text_kw)
         else:
-            ax.text(row.gene_name_xposition, gene_name_y, row.gene, **text_prop)
+            ax.text(row.gene_name_xposition, gene_name_y, row.gene, **text_kw)
       
     return ax
     
