@@ -3,6 +3,7 @@ The cbviz package provides classes and functions for visualization.
 """
 
 
-from .kdetools import Ridge, SplitViolin
-from .xytools import XYview, XYpairs, XYzoom, Dotplot
-from .bptools import StripBox
+from .kde import Ridge, SplitViolin
+from .xytools import XYview, XYpairs, XYzoom
+from .boxplot import StripBox
+from .dotplot import Dotplot
