@@ -19,16 +19,6 @@ from .utils import DataDot, DataNum
 from itertools import combinations
 
 
-
-class Corrplot(Dotplot):
-    
-    def __init__(self, ) -> None:
-        super().__init__()
-
-
-
-
-
 class Dotplot:
     
     def __init__(self, data, 
@@ -105,7 +95,7 @@ class Dotplot:
         if len(bins)!=len(sizes_out)+1:
             raise ValueError(f'{len(bins)} bins, but {len(sizes_out)} sizes. That does not work.')
         
-        self.size_cut = pd.cut(sizes_raw, bins, include_lowest=True, labels=sizes_out)
+        self.size_cut = pd.cut(sizes_raw, bins, include_lowest=True, labels=sizes_out, ordered=False) # allow duplicate values
         self.bins = [(bin, size) for bin, size in zip(bins[1:], sizes_out)]
         
         print('Assigned sizes as follows:')
@@ -135,6 +125,13 @@ class Dotplot:
         
         return [Line2D([0], [0], marker='o', color='w', markerfacecolor='0.25', label=l, markersize=s) for l, s in zip(lbls, marker_sizes)]
 
+
+### 
+
+class Corrplot(Dotplot):
+    
+    def __init__(self, ) -> None:
+        super().__init__()
 
 
 
