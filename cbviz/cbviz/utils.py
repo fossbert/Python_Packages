@@ -161,3 +161,22 @@ def _cut_p(pval):
         return "*"
     else:
         return 'ns'
+    
+def _color_light_or_dark(rgba_in:np.ndarray)-> str:
+    """[For plotting purposes, we determine whether a color is light or dark and adjust its text color accordingly.
+    Also see https://stackoverflow.com/questions/22603510/is-this-possible-to-detect-a-colour-is-a-light-or-dark-colour]
+
+    Args:
+        rgba_in ([np.ndarray]): [A numpy array containing RGBA as returned by matplotlib colormaps]
+
+    Returns:
+        [str]: [A string: w for white or k for black]
+    """
+    r,g,b,_ = rgba_in*255
+    hsp = np.sqrt(0.299 * (r * r) + 0.587 * (g * g) + 0.114 * (b * b))
+    if (hsp>127.5):
+        # light color, return black for text
+        return 'k'
+    else:
+        # dark color, return white for text
+        return 'w'
