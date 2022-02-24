@@ -234,7 +234,14 @@ class StripBox:
              print(f'Could not find {groupA} and/or {groupB} in stat DataFrame')
              raise
 
-### Helper function
+
+
+class SplitStripBox:
+    
+    def __init__(self) -> None:
+        pass
+
+### Helper functions
 
 
 def _get_jitter_and_colors(data:pd.DataFrame, x:str, jitter:float, loc:int, color:str):
