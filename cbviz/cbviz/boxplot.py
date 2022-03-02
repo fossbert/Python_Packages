@@ -9,6 +9,7 @@ from itertools import combinations
 # Plotting
 import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
+from matplotlib.colors import to_hex
 
 # Utils
 from .utils import DataMix, _cut_p
@@ -60,7 +61,7 @@ class StripBox:
         if s1_colors:
             if len(s1_colors)!=len(self.s1_categories):
                 raise ValueError("Provided colors did not match number of categories")
-            self.s1_colors = s1_colors
+            self.s1_colors = [color if len(color)==1 else to_hex(color) for color in s1_colors]
         else: 
             self.s1_colors = ['C'+str(i) for i in range(len(self.s1_categories))]
         
