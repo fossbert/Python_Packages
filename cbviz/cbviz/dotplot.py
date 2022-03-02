@@ -133,7 +133,7 @@ class Dotplot:
         
         return [Line2D([0], [0], marker='o', color='w', markerfacecolor='0.25', label=l, markersize=s) for l, s in zip(lbls, marker_sizes)]
     
-    def annotate(self, scatter:PathCollection, ax=None, str_fmt:str="1.1f", **text_kwargs):
+    def annotate(self, scatter:PathCollection, vertical=True, str_fmt:str="1.1f", ax=None, **text_kwargs):
         
         if ax is None:
             ax = plt.gca()
@@ -144,10 +144,16 @@ class Dotplot:
             for k,v in text_kwargs.items():
                 text_props.update({k:v})
         
-        for x, y, t, s in zip(self.x, self.y, self.size_raw, self.size_cut):
+        if vertical:
+            it = zip(self.x, self.y, self.size_raw, self.size_cut)
+        else:
+            it = zip(self.y, self.x, self.size_raw, self.size_cut)
+   
+        for x, y, t, s in it:
             if not np.isnan(t) and s>0:
                 color = _color_light_or_dark(np.array(scatter.to_rgba(t)))
-                ax.text(y, x, f'{t:{str_fmt}}', color=color, **text_props)
+                pos = (y, x) if vertical else (x, y)
+                ax.text(*pos, f'{t:{str_fmt}}', color=color, **text_props)
         
 
 
