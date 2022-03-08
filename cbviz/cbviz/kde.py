@@ -1,11 +1,12 @@
 # pillars of work
+from turtle import position
 import numpy as np
 import pandas as pd
 
 # tools and stats
 from itertools import product
 from collections import namedtuple
-
+from functools import singledispatchmethod
 
 # Plotting
 from matplotlib.lines import Line2D
@@ -21,25 +22,65 @@ from .utils import DataMix
 """Functions for illustrating gaussian kernel density estimates"""
 
 
+class KDE:
+    
+    """ Basic class implementing tools for visualizing and annotating kernel density estimates. 
+
+    """
+    
+    def __init__(self, 
+                 data:Union[pd.Series, np.ndarray],
+                 fit_kwargs:dict=None,
+                 grid_kwargs:dict=None) -> None:
+        
+        if isinstance(data, np.ndarray):
+            print('Provided np.ndarray -> defaulting to RangeIndex')
+            data = pd.Series(data)
+            
+        self.data = data.dropna()
+        self.kde = _fit_kde(self.data.values, fit_kwargs) # important to find index or values
+        self.curve = _get_curve(self.data, None, fit_kwargs, grid_kwargs)
+        
+        
+    def __repr__(self) -> str:
+        return (
+            f"KDE(Total data points: {len(self.data)},\n"
+            f"gridsize: {len(self.curve)}"
+        )
+
+    @singledispatchmethod
+    def find_position(self, position):
+        """Allows to find coordinates for either indices (provided as strings) or numeric values from the 
+        data. It will return a tuple of a x and y value for further processing. 
+        """
+        print('Please specify position as either a float or string.')
+
+    @find_position.register
+    def _(self, position: float):
+        return (position, self.kde(position)[0])
+
+    @find_position.register
+    def _(self, position: str):
+        pos_numeric = self.data[position]
+        return (pos_numeric, self.kde(pos_numeric)[0])
+
 class Ridge:
     
+    """Convenience class to produce a series of density curves for plotting density curves 
+    broken down by one categorical variable (=s1). Usually set up along the y-axis. 
     
-    """[summary]
+    Example use case: 
+    rp = Ridge(data, s1_order=['WT','Balanced', 'Minor', 'Major'], scale_factor=1.2)
+    
+    for kde in rp.get_kdes():
 
-    Raises:
-        ValueError: [description]
-        ValueError: [description]
-        ValueError: [description]
-        ValueError: [description]
-        ValueError: [description]
-        ValueError: [description]
-        AssertionError: [description]
+        ax.fill_betweenx(kde.density, kde.grid, facecolor=kde.color, alpha=0.3)
+        ax.plot(kde.mode.ycoords, kde.mode.xcoords, lw=0.1, c='k')
 
-    Returns:
-        [type]: [description]
-
-    Yields:
-        [type]: [description]
+    ax.set_yticks(*rp.get_s1_ticks())
+    ax.set_xlabel(rp.ylabel)
+    [ax.axhline(i, ls=':', lw=0.25, c='0.15') for i in rp.get_s1_ticks()[0]]
+    
     """
 
     def __init__(self, 
@@ -237,7 +278,10 @@ def _get_grids_and_densities(data: pd.DataFrame, x:str, *split_variables) -> pd.
         raise AssertionError(f"Split variables provided ({', '.join(split_variables)}) not found in data: {', '.join(data.columns)}")
 
 
-def _get_curve(data:Union[pd.DataFrame, pd.Series], x:str = None):       
+def _get_curve(data:Union[pd.DataFrame, pd.Series], 
+               x:str = None, 
+               fit_kwargs:dict=None,
+               grid_kwargs:dict=None):       
     
     """[This function is the main work horse to go from a series of numeric values to 
     a density curve with support grid which it will provide in a DataFrame. 
@@ -248,45 +292,46 @@ def _get_curve(data:Union[pd.DataFrame, pd.Series], x:str = None):
     """
     
     xvals = data[x].values if x else data.values
-    support = _kde_support(xvals)
-    kde = _fit_kde(xvals)
-    density = kde(support)
-    return pd.DataFrame({'grid':support, 'density':density})
-
-
-def _kde_support(x: np.ndarray, 
-                fit_kw: dict = None,
-                **support_kwargs):
-    """Create a 1D grid of evaluation points."""
-    kde = _fit_kde(x, fit_kw=fit_kw)
-    bw = np.sqrt(kde.covariance.squeeze())
-    grid = _define_support_grid(x, bw, **support_kwargs)
     
-    return grid
+    # fit kde and squeeze bandwidth
+    kde = _fit_kde(xvals, fit_kwargs)
+    bw = np.sqrt(kde.covariance.squeeze())
+    
+    # get support grid, pass further arguments if provided
+    grid_props = {'cut':3, 'gridsize':200, 'clip':None}
+    if grid_kwargs:
+        for k, v in grid_kwargs.items():
+            if k in grid_props:
+                 grid_props.update({k:v})
+            else:
+                print(f'Ignoring following key: {k}')
+                
+    grid = _define_support_grid(xvals, bw, **grid_props)
+    # density over grid
+    density = kde(grid)
+    
+    return pd.DataFrame({'grid':grid, 'density':density})
 
-def _fit_kde(x:np.ndarray, 
-             fit_kw: dict = None):
+def _fit_kde(x:np.ndarray, fit_kwargs: dict=None):
     """Fit a gaussian KDE to numeric variable and adjust bandwidth."""
+   
     fit_props = {"bw_method": "scott"}
     
-    if fit_kw:
-        fit_props.update(fit_kw)
+    if fit_kwargs:
+        fit_props.update(fit_kwargs)
         
     kde = gaussian_kde(x, **fit_props)
     kde.set_bandwidth(kde.factor * 1)
 
     return kde
 
-def _define_support_grid(x:np.ndarray, 
-                  bw:float, 
-                  cut:int=3, 
-                  clip:tuple = None, 
-                  gridsize:int = 200):
+
+def _define_support_grid(x:np.ndarray, bw:float, cut:int=3, gridsize:int = 200, clip:tuple = None):
+    
     """Create the grid of evaluation points depending for vector x."""
-    if clip is None:
-        clip = None, None
-    clip_lo = -np.inf if clip[0] is None else clip[0]
-    clip_hi = +np.inf if clip[1] is None else clip[1]
+    
+    clip_lo = clip[0] if clip else -np.inf 
+    clip_hi = clip[1] if clip else +np.inf 
     gridmin = max(x.min() - bw * cut, clip_lo)
     gridmax = min(x.max() + bw * cut, clip_hi)
     
