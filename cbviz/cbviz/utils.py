@@ -1,6 +1,8 @@
 from unicodedata import name
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
+from matplotlib import colors
 
 # type checking
 from pandas.api.types import infer_dtype, is_categorical_dtype, is_integer_dtype
@@ -180,3 +182,27 @@ def _color_light_or_dark(rgba_in:np.ndarray)-> str:
     else:
         # dark color, return white for text
         return 'w'
+    
+
+    
+def categorical_cmap(nc, nsc, cmap="tab10", continuous=False):
+    """
+    Also see https://stackoverflow.com/questions/47222585/matplotlib-generic-colormap-from-tab10
+    """
+    
+    if nc > plt.get_cmap(cmap).N:
+        raise ValueError(f"Too many categories for colormap: {cmap}.")
+    if continuous:
+        ccolors = plt.get_cmap(cmap)(np.linspace(0, 1, nc))
+    else:
+        ccolors = plt.get_cmap(cmap)(np.arange(nc, dtype=int))
+    cols = np.zeros((nc*nsc, 3))
+    for i, c in enumerate(ccolors):
+        chsv = colors.rgb_to_hsv(c[:3])
+        arhsv = np.tile(chsv, nsc).reshape(nsc,3)
+        arhsv[:,1] = np.linspace(chsv[1], 0.25, nsc)
+        arhsv[:,2] = np.linspace(chsv[2], 1, nsc)
+        rgb = colors.hsv_to_rgb(arhsv[::-1,:]) #modification to have ascending hues left to right
+        cols[i*nsc:(i+1)*nsc,:] = rgb       
+    #cmap = colors.ListedColormap(cols)
+    return cols

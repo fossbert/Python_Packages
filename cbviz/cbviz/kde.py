@@ -49,20 +49,29 @@ class KDE:
         )
 
     @singledispatchmethod
-    def find_position(self, position):
+    def find(self, position):
         """Allows to find coordinates for either indices (provided as strings) or numeric values from the 
         data. It will return a tuple of a x and y value for further processing. 
         """
-        print('Please specify position as either a float or string.')
+        print('Please specify position as either a float, integer or string.')
 
-    @find_position.register
-    def _(self, position: float):
+    @find.register(float)
+    @find.register(int)
+    def find_num(self, position):
         return (position, self.kde(position)[0])
 
-    @find_position.register
+    @find.register
     def _(self, position: str):
         pos_numeric = self.data[position]
         return (pos_numeric, self.kde(pos_numeric)[0])
+    
+    @property
+    def x(self):
+        return self.curve.grid #convenience
+    
+    @property
+    def y(self):
+        return self.curve.density #convenience
 
 class Ridge:
     

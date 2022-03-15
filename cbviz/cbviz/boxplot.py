@@ -4,7 +4,7 @@ import pandas as pd
 
 # tools and stats
 from itertools import combinations
-# from collections import namedtuple
+from collections import namedtuple
 
 # Plotting
 import matplotlib.pyplot as plt
@@ -12,7 +12,7 @@ from matplotlib.patches import Patch
 from matplotlib.colors import to_hex
 
 # Utils
-from .utils import DataMix, _cut_p
+from .utils import DataMix, _cut_p, categorical_cmap
 
 # stats
 from scipy.stats import (kruskal, f_oneway, ttest_ind, mannwhitneyu)
@@ -70,7 +70,12 @@ class StripBox:
         self.global_p = self._calc_global_p(self.p_method_global)
         
         # Scatter plot data
-        self.strip_data = self._add_strip_data(self.jitter, self.s1_colors)
+        self.strip_data = _add_strip_data(self.data.df, 
+                                          self.ylabel, 
+                                          list(range(1, len(self.s1_categories)+1)),
+                                          self.jitter, 
+                                          self.s1_colors, 
+                                          self.s1)
        
             
     def __repr__(self) -> str:
@@ -81,16 +86,6 @@ class StripBox:
             f"Total data points: {len(self.data.df)})"
         )      
         
-    def _get_data(self):
-          
-        return self.data.df.groupby(self.s1).apply(lambda x: x[self.ylabel].values).values
-        
-    def _add_strip_data(self, jitter:float, colors:tuple):
-        
-        grouped_df = self.data.df.groupby(self.s1)
-
-        return pd.concat([_get_jitter_and_colors(subdf, x=self.ylabel, loc=i+1, jitter=jitter, color=colors[i]) for i, (_, subdf) in enumerate(grouped_df)])
-
     def _calc_global_p(self, method:str):
         
         options = ['Kruskal', 'Anova']
@@ -100,18 +95,20 @@ class StripBox:
 
         alternatives = {'Kruskal':'MWU', 'Anova':"Welch"}
         
+        bp_arrays = _get_bp_arrays(self.data.df, self.ylabel, self.s1)
+        
         if len(self.s1_categories)<3:
-            _, pval = mannwhitneyu(*self._get_data()) if method=='Kruskal' else ttest_ind(*self._get_data(), equal_var=False)
+            _, pval = mannwhitneyu(*bp_arrays) if method=='Kruskal' else ttest_ind(*bp_arrays, equal_var=False)
             self.p_method_global = alternatives.get(method)
         else:
-            _, pval = kruskal(*self._get_data()) if method == 'Kruskal' else f_oneway(*self._get_data())
+            _, pval = kruskal(*bp_arrays) if method == 'Kruskal' else f_oneway(*bp_arrays)
             
         return pval
     
     def calc_pairwise_p(self, pair_method:str='welch', adj_method:str='fdr_bh'):
         
-        box_values = self._get_data()
-        box_max_values, box_min_values = list(zip(*[(np.max(i), np.min(i)) for i in box_values]))
+        bp_arrays = _get_bp_arrays(self.data.df, self.ylabel, self.s1)
+        box_max_values, box_min_values = list(zip(*[(np.max(i), np.min(i)) for i in bp_arrays]))
          
         pair_options = ['welch', 'mannwhitneyu']
         
@@ -135,9 +132,9 @@ class StripBox:
             ymin = (box_min_values[i], box_min_values[j])
             
             if pair_method == 'Welch':
-                _, pval = ttest_ind(box_values[i], box_values[j], equal_var=False)
+                _, pval = ttest_ind(bp_arrays[i], bp_arrays[j], equal_var=False)
             else:
-                _, pval = mannwhitneyu(box_values[i], box_values[j])
+                _, pval = mannwhitneyu(bp_arrays[i], bp_arrays[j])
     
             index.append(contrast)
             data.append((xpos, ymax, ymin, pval))
@@ -156,9 +153,9 @@ class StripBox:
         if ax is None:
             ax = plt.gca()
         
-        box_values = self._get_data()
+        bp_arrays = _get_bp_arrays(self.data.df, self.ylabel, self.s1)
         
-        ax.boxplot(box_values, **boxplot_kwargs)
+        ax.boxplot(bp_arrays, **boxplot_kwargs)
         ax.set_xticks(np.arange(len(self.s1_categories))+1, self.s1_categories)
         
     def add_strips(self, ax=None, **scatter_kwargs):
@@ -238,11 +235,180 @@ class StripBox:
 
 
 class SplitStripBox:
+       
+    """Container for producing a box- and strip plots where the x-axis is split by two levels, i.e. 
+    an outer and an inner level.
     
-    def __init__(self) -> None:
-        pass
+    Parameters
+    ----------
+    data : pandas DataFrame
+        DataFrame holding information on one numeric and two categorical/string variables.
+    
+    minsize : int
+        Minimal number of samples per subgroup, defaults to 3.
+    
+    jitter : float
+        Amount of noise to add to dots in strip chart, defaults to 0.08
+        
+    bp_width : float
+        Width of boxplots, important for x-position calculation, defaults to 0.5
+    
+    space_within : float
+        Space between individual boxplots of an s1 group, defaults to 0.1
+    
+    space_between : float 
+        Space between s1 groups, defaults to 0.5
+        
+    s1_order: list 
+        Option to reorder levels of outer split s1
+    
+    s2_order: list
+        Option to reorder levels of inner split s2
+    
+    strip_colors: list 
+        Option to provide s2 colors, i.e. for each boxplot within a s1 split. Defaults to Greys internally. 
+        Number of provided colors must match the number of levels of s2. 
+    
+    """
+
+    def __init__(self, 
+                 data:pd.DataFrame,     
+                minsize:int = 3,
+                jitter:float=0.08,
+                bp_width:float=0.5,
+                space_within:float=0.1,
+                space_between:float=0.5,    
+                s1_order: list = None, 
+                s2_order: list = None,
+                strip_colors: list =None) -> None:
+        
+        self.data = DataMix(data, ncat=2, minsize=minsize)
+        self.ylabel, self.s1, self.s2 = self.data.var_names
+        _, self.s1_dtype, self.s2_dtype = self.data.dtypes
+        self.bp_width = bp_width
+        self.space_within = space_within
+        self.space_between = space_between
+        self.jitter = jitter
+       
+        if self.s1_dtype == 'string':
+            self.data.df[self.s1] = self.data.df[self.s1].astype('category')
+            self.s1_dtype = 'categorical'
+            
+        if self.s2_dtype == 'string':
+            self.data.df[self.s2] = self.data.df[self.s2].astype('category')
+            self.s2_dtype = 'categorical'
+        
+        self.s1_categories = self.data.df[self.s1].cat.categories.to_list()
+        self.s2_categories = self.data.df[self.s2].cat.categories.to_list()
+        
+        if len(self.s1_categories) < 1:
+            raise ValueError(f'There is not a single level for {self.s1}') 
+        
+        if s1_order:
+             if all([s1_lvl in self.s1_categories for s1_lvl in s1_order]):
+                 self.data.df[self.s1] = self.data.df[self.s1].cat.reorder_categories(s1_order)
+                 self.s1_categories = s1_order
+             else:
+                 raise ValueError(f'Could not align levels, provided: {", ".join(s1_order)}, available: {", ".join(self.s1_categories)}')
+        
+        if s2_order:
+            if all([s2_lvl in self.s2_categories for s2_lvl in s2_order]):
+                self.data.df[self.s2] = self.data.df[self.s2].cat.reorder_categories(s2_order)
+                self.s2_categories = s2_order
+            else:
+                raise ValueError(f'Could not align levels, provided: {", ".join(s2_order)}, available: {", ".join(self.s2_categories)}')
+        
+        # convenience for grid computation
+        self.n_s1 = len(self.s1_categories)
+        self.n_s2 = len(self.s2_categories)
+    
+        if strip_colors:
+            if needed:=len(self.s2_categories)!=len(strip_colors):
+                raise ValueError(f"Provided strip colors did not match number of {needed} s2 categories")
+            scolors = np.tile(strip_colors, self.n_s1)
+            self.strip_colors = [color if len(color)==1 else to_hex(color) for color in scolors]
+        else: 
+            # Default will use hues of grey
+            grey_colors = plt.get_cmap('Greys')(np.linspace(0.3, 0.6, self.n_s2))
+            self.strip_colors = [to_hex(color) for color in np.tile(grey_colors, (self.n_s1, 1))]
+            
+       # Once we made it past all these checks, we can start with some calculations   
+        self.s1_ticks, self.xtick_pos = self._get_xgrid()
+        # self.strip_data = 
+        self.strip_data = _add_strip_data(self.data.df, 
+                                          self.ylabel, 
+                                          self.xtick_pos,
+                                          self.jitter, 
+                                          self.strip_colors, 
+                                          self.s1,
+                                          self.s2)
+            
+    def __repr__(self) -> str:
+        return (
+            f"SplitStripBox(Numeric variable: {self.ylabel}\n "
+            f"Split 1: {self.s1}, levels: {len(self.s1_categories)}\n"
+            f"Split 2: {self.s2}, levels: {len(self.s2_categories)}\n "
+            f"Total data points: {len(self.data.df)})"
+        )
+
+    def _get_xgrid(self):
+        
+        unit_width = self.bp_width/2 + self.space_within/2 # half of one single unit (boxplot plus space)
+        s2_width = self.bp_width*self.n_s2 + (self.n_s2-1)*self.space_within #width of all s2 boxplots plus space
+
+        total_width = s2_width + self.space_between
+        s1_grid = np.arange(0, self.n_s1*total_width, total_width)
+
+        # compute a grid of s2 level boxplot positions for every s1 level
+        xpos = [np.linspace(-unit_width*(self.n_s2-1), unit_width*(self.n_s2-1), self.n_s2) + i for i in s1_grid]
+        s1_xtick_pos = [np.median(x) for x in xpos] # median for xtick labeling
+        all_xtick_pos = [y for x in xpos for y in x] # to pass to ax.boxplot
+        
+        return TickInfo(s1_xtick_pos, self.s1_categories), all_xtick_pos
+        
+    def boxplt(self, ax=None, **boxplot_kwargs):
+    
+        if ax is None:
+            ax = plt.gca()
+        
+        bp_arrays = _get_bp_arrays(self.data.df, self.ylabel, self.s1, self.s2)
+        
+        ax.boxplot(bp_arrays, widths=self.bp_width, positions=self.xtick_pos, **boxplot_kwargs)
+        ax.set_xticks(*self.s1_ticks)
+
+    def add_strips(self, ax=None, **scatter_kwargs):
+        
+        if ax is None:
+            ax = plt.gca()
+            
+        scatter_call = dict(zip(self.strip_data.columns, self.strip_data.T.values))
+        
+        if scatter_kwargs:
+            for k, v in scatter_kwargs.items():
+                scatter_call.update({k:v})
+                
+        ax.scatter(**scatter_call)
+
 
 ### Helper functions
+
+def _get_bp_arrays(data: pd.DataFrame, value_var:str, *categories):
+    
+    return data.groupby(list(categories)).apply(lambda x: x[value_var].values).values
+
+
+def _add_strip_data(data:pd.DataFrame, value_var:str, xpos:list, jitter:float, colors:list, *categories):
+        
+        grouped_df = data.groupby(list(categories))
+
+        res = []
+        
+        for i, (_, subdf), c in zip(xpos, grouped_df, colors):
+            
+            res.append(_get_jitter_and_colors(subdf, x=value_var, loc=i, jitter=jitter, color=c))
+
+        return pd.concat(res)
+
 
 
 def _get_jitter_and_colors(data:pd.DataFrame, x:str, jitter:float, loc:int, color:str):
@@ -276,3 +442,6 @@ def _get_connect_lines(ys, offset, top=True):
     else:
         ycourse = np.repeat(ys, (3,1)) if np.argmin(ys)==0 else np.repeat(ys, (1,3))
         return [y-offset*i for y, i in zip(ycourse, off_mult)]
+    
+    
+TickInfo = namedtuple('TickInfo', 'positions labels')
