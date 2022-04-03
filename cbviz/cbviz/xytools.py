@@ -12,7 +12,7 @@ from matplotlib.patches import Patch, Rectangle, ConnectionPatch
 from adjustText import adjust_text
 
 # stats
-from scipy.stats import pearsonr
+from scipy.stats import pearsonr, spearmanr
 
 # utils
 from .utils import DataNum
@@ -104,15 +104,17 @@ class XYview:
     def __init__(self, 
                     data:pd.DataFrame,  
                     highlight: list = None,
+                    corr_method:str = 'spearman',
                     **scatter_kwargs):    
         
         self.data = DataNum(data, ncols=2)
+        self.corr_method = corr_method
         self.xlabel, self.ylabel = self.data.var_names
         self.x = self.data.df[self.xlabel].values
         self.y = self.data.df[self.ylabel].values
         
         # stats
-        self.pearson, _ = pearsonr(self.x, self.y)
+        self.rho, _ = pearsonr(self.x, self.y) if corr_method=='pearson' else spearmanr(self.x, self.y)
         self.slope, self.intercept  = np.polyfit(self.x, self.y, 1)
         
         # scatter keywords
@@ -123,7 +125,7 @@ class XYview:
 
         # Labels
         self.highlight = highlight
-        self.pearson_label_props =   {'loc':0, 'handlelength':0, 'handletextpad':0, 
+        self.rho_label_props =   {'loc':0, 'handlelength':0, 'handletextpad':0, 
         "frameon":False, 'fontsize':'x-small', 'labelcolor':'0.15'}
 
         # Lines
@@ -137,7 +139,7 @@ class XYview:
     def __repr__(self) -> str:
         return (
             f"XYview(X: {self.xlabel}, Y: {self.ylabel}\n"
-            f"Observations: {len(self.data.df)}, Pearson r: {self.pearson:.2f})"
+            f"Observations: {len(self.data.df)}, {self.corr_method.capitalize()} r: {self.rho:.2f})"
             )
 
     def add_correlation(self, ax=None, **legend_kwargs):
@@ -147,9 +149,9 @@ class XYview:
         
         if len(legend_kwargs)>0:
             for k,v in legend_kwargs.items():
-                self.pearson_label_props.update({k:v})
+                self.rho_label_props.update({k:v})
                 
-        ax.legend([Patch(color='w')], [f'r: {self.pearson:.2f}'], **self.pearson_label_props)
+        ax.legend([Patch(color='w')], [f'r: {self.rho:.2f}'], **self.rho_label_props)
         
         return ax
         
@@ -162,7 +164,9 @@ class XYview:
             for k,v in line_kwargs.items():
                 self.line_props.update({k:v})
 
-        ax.plot(self.x, self.x*self.slope + self.intercept, **self.line_props)
+        grid = np.linspace(np.min(self.x), np.max(self.x))
+
+        ax.plot(grid, grid*self.slope + self.intercept, **self.line_props)
         
         return ax
 

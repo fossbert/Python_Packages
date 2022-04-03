@@ -12,7 +12,7 @@ from matplotlib.patches import Patch
 from matplotlib.colors import to_hex
 
 # Utils
-from .utils import DataMix, _cut_p, categorical_cmap
+from .utils import DataMix, _cut_p
 
 # stats
 from scipy.stats import (kruskal, f_oneway, ttest_ind, mannwhitneyu)
@@ -97,7 +97,10 @@ class StripBox:
         
         bp_arrays = _get_bp_arrays(self.data.df, self.ylabel, self.s1)
         
-        if len(self.s1_categories)<3:
+        if len(self.s1_categories)==1:
+            print('No p-value for single group!')
+            return np.nan
+        elif len(self.s1_categories)<3:
             _, pval = mannwhitneyu(*bp_arrays) if method=='Kruskal' else ttest_ind(*bp_arrays, equal_var=False)
             self.p_method_global = alternatives.get(method)
         else:
