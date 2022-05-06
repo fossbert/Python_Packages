@@ -1,10 +1,8 @@
 # pillars of work
-from turtle import position
 import numpy as np
 import pandas as pd
 
 # tools and stats
-from itertools import product
 from collections import namedtuple
 from functools import singledispatchmethod
 
