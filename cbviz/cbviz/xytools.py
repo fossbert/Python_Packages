@@ -1,4 +1,5 @@
-# computing
+# computing/programming
+from itertools import combinations
 from collections import namedtuple
 from warnings import warn
 import matplotlib
@@ -9,14 +10,17 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 from matplotlib.patches import Patch, Rectangle, ConnectionPatch
+from matplotlib.colors import to_hex
 from adjustText import adjust_text
 
 # stats
 from scipy.stats import pearsonr, spearmanr
 
-# utils
+# utils/internal imports
 from .utils import DataNum
-from itertools import combinations
+from .kde import KDE2D
+
+from typing import Sequence, Union
 
 
 """Functions for illustrating relationships between two numeric variables"""
@@ -226,6 +230,30 @@ class XYview:
             ax.yaxis.tick_right()
             
         return ax
+
+    def add_2d_densities(self, s1:Sequence[Union[str, int]], s1_colors=None, ax=None, fit_kwargs=None, grid_kwargs=None, **contour_kwargs):
+
+        """Given a sequence of length equal to x and y, this function will add 2D kernel density estimate lines 
+           for each level of the sequence. 
+        """
+
+        if ax is None:
+            ax = plt.gca()
+
+        if s1_colors:
+            assert len(set(s1))==len(s1_colors), 'Number of colors does not match s1 levels'
+        else:
+             # Default will use hues of blue
+            s1_colors = plt.get_cmap('Blues')(np.linspace(0.3, 0.6, len(set(s1))))
+            s1_colors = [to_hex(color) for color in s1_colors]
+
+        assert len(self.data.df) == len(s1), 's1 length does not match XY-data'
+
+        for (_, df), line_color in zip(self.data.df.groupby(s1), s1_colors):
+
+            k2 = KDE2D(df[self.xlabel], df[self.ylabel], fit_kwargs=fit_kwargs, grid_kwargs=grid_kwargs)
+
+            ax.contour(*k2.data, colors=line_color, **contour_kwargs)
 
 
 class XYzoom(XYview):

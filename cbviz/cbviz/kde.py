@@ -71,6 +71,52 @@ class KDE:
     def y(self):
         return self.curve.density #convenience
 
+
+class KDE2D:
+
+    """ Class implementing tools for visualizing and annotating 2-dimensional kernel density estimates. """
+   
+    def __init__(self, 
+                 x:Union[pd.Series, np.ndarray],
+                 y:Union[pd.Series, np.ndarray],
+                 fit_kwargs:dict=None,
+                 grid_kwargs:dict=None) -> None:
+        
+        if isinstance(x, np.ndarray):
+            x = pd.Series(x)
+        if isinstance(y, np.ndarray):
+            y = pd.Series(y)
+            
+        self.x = x.dropna()
+        self.y = y.dropna()
+        self.kde = _fit_kde(self.x, self.y, fit_kwargs=fit_kwargs) 
+        self.bw1, self.bw2 = np.diag(np.sqrt(self.kde.covariance.squeeze()))
+        self.grid_props = {'cut':3, 'gridsize':200, 'clip':None}
+        if grid_kwargs:
+            for k, v in grid_kwargs.items():
+                if k in self.grid_props:
+                    self.grid_props.update({k:v})
+                else:
+                    print(f'Ignoring following key: {k}')
+
+        self.support = [_define_support_grid(i, bw, **self.grid_props) for i, bw in zip([self.x, self.y], [self.bw1, self.bw2])]
+        self.X, self.Y = np.meshgrid(*self.support)
+        self.Z = self.kde([self.X.ravel(), self.Y.ravel()]).reshape(self.X.shape)
+
+    @property
+    def data(self):
+        return self.X, self.Y, self.Z
+
+#     kde = gaussian_kde([m1, m2])
+# bw1, bw2 = np.diag(np.sqrt(kde.covariance.squeeze()))
+# support = (_define_support_grid(i, bw) for i, bw in zip([m1, m2], [bw1, bw2]))
+# X, Y = np.meshgrid(*support)
+# Z = kde([X.ravel(), Y.ravel()]).reshape(X.shape)
+# fig, ax = plt.subplots()
+
+# ax.contour(X, Y, Z, colors='C0', linewidths=0.5, zorder=-1)
+# ax.scatter(m1, m2, alpha=0.6)
+
 class Ridge:
     
     """Convenience class to produce a series of density curves for plotting density curves 
@@ -319,15 +365,18 @@ def _get_curve(data:Union[pd.DataFrame, pd.Series],
     
     return pd.DataFrame({'grid':grid, 'density':density})
 
-def _fit_kde(x:np.ndarray, fit_kwargs: dict=None):
+def _fit_kde(*arrays, fit_kwargs: dict=None):
     """Fit a gaussian KDE to numeric variable and adjust bandwidth."""
    
     fit_props = {"bw_method": "scott"}
     
     if fit_kwargs:
         fit_props.update(fit_kwargs)
+
+    if (n_arr:=len(arrays))>2:
+        raise ValueError(f'Can only accomodate two input arrays, got {n_arr}')
         
-    kde = gaussian_kde(x, **fit_props)
+    kde = gaussian_kde(dataset=arrays, **fit_props)
     kde.set_bandwidth(kde.factor * 1)
 
     return kde
@@ -336,10 +385,14 @@ def _fit_kde(x:np.ndarray, fit_kwargs: dict=None):
 def _define_support_grid(x:np.ndarray, bw:float, cut:int=3, gridsize:int = 200, clip:tuple = None):
     
     """Create the grid of evaluation points depending for vector x."""
-    
+
+
     clip_lo = clip[0] if clip else -np.inf 
     clip_hi = clip[1] if clip else +np.inf 
+
     gridmin = max(x.min() - bw * cut, clip_lo)
     gridmax = min(x.max() + bw * cut, clip_hi)
     
     return np.linspace(gridmin, gridmax, gridsize)
+ 
+
