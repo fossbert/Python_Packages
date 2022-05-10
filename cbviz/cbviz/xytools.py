@@ -20,7 +20,8 @@ from scipy.stats import pearsonr, spearmanr
 from .utils import DataNum
 from .kde import KDE2D
 
-from typing import Sequence, Union
+from typing import Union
+from collections.abc import Sequence
 
 
 """Functions for illustrating relationships between two numeric variables"""
@@ -107,8 +108,11 @@ class XYview:
 
     def __init__(self, 
                     data:pd.DataFrame,  
-                    highlight: list = None,
                     corr_method:str = 'spearman',
+                    s1:Sequence[Union[pd.Series, np.ndarray, list]]=None,
+                    s1_order:Sequence=None,
+                    s1_colors:Sequence=None,
+                    highlight: Sequence = None,
                     **scatter_kwargs):    
         
         self.data = DataNum(data, ncols=2)
@@ -116,21 +120,48 @@ class XYview:
         self.xlabel, self.ylabel = self.data.var_names
         self.x = self.data.df[self.xlabel].values
         self.y = self.data.df[self.ylabel].values
-        
+
+        # In case s1 is supplied for color coding
+        if s1 is None:
+            self.s1 = s1
+        else:
+            self.s1 = s1.astype('category').copy() if isinstance(s1, pd.Series) else pd.Series(s1, dtype='category')
+            self.s1_categories = self.s1.cat.categories
+              # Default will use hues of blue
+            self.s1_colors = [to_hex(color_hue) for color_hue in plt.get_cmap('Blues')(np.linspace(0.5, 1, len(self.s1_categories)))]
+                
+        if s1_order:
+            if all([s1_lvl in self.s1_categories for s1_lvl in s1_order]):
+                 self.s1 = self.s1.cat.reorder_categories(s1_order)
+                 self.s1_categories = list(s1_order)
+            else:
+                 raise ValueError(f'Could not align levels, provided: {", ".join(s1_order)}, available: {", ".join(self.s1_categories)}')
+    
+        if s1_colors:
+            assert len(s1_colors)==len(self.s1_categories), 'Number of colors does not match number of categories'
+            self.s1_colors = list(s1_colors)
+ 
         # stats
         self.rho, _ = pearsonr(self.x, self.y) if corr_method=='pearson' else spearmanr(self.x, self.y)
         self.slope, self.intercept  = np.polyfit(self.x, self.y, 1)
         
         # scatter keywords
-        self.scatter_kw = {'c': '0.5', 'alpha':0.5, 'linewidth':0, 's':2000/len(self.data.df)}
+        self.scatter_call = {'x':self.x, 'y': self.y, 'c': '0.5', 'alpha':0.5, 'linewidth':0, 's':2000/len(self.data.df)}
+
+        if self.s1_colors:
+            color_map = dict(zip(self.s1_categories, self.s1_colors))
+            self.scatter_call.update({'c':self.s1.map(color_map)})
+            self.handles = [Line2D([0], [0], color='w', marker='o', markerfacecolor=c, label=l) for l, c in color_map.items()]
+       
+
         if len(scatter_kwargs)>0:
             for key, val in scatter_kwargs.items():
-                self.scatter_kw.update({key:val})
+                self.scatter_call.update({key:val})
 
         # Labels
         self.highlight = highlight
         self.rho_label_props =   {'loc':0, 'handlelength':0, 'handletextpad':0, 
-        "frameon":False, 'fontsize':'x-small', 'labelcolor':'0.15'}
+                            "frameon":False, 'fontsize':'x-small', 'labelcolor':'0.15'}
 
         # Lines
         self.line_props =  {'lw':0.5, 'ls':':', 'color':'.15', 'zorder':-1}
@@ -231,7 +262,7 @@ class XYview:
             
         return ax
 
-    def add_2d_densities(self, s1:Sequence[Union[str, int]], s1_colors=None, ax=None, fit_kwargs=None, grid_kwargs=None, **contour_kwargs):
+    def add_2d_densities(self, ax=None, fit_kwargs=None, grid_kwargs=None, **contour_kwargs):
 
         """Given a sequence of length equal to x and y, this function will add 2D kernel density estimate lines 
            for each level of the sequence. 
@@ -240,20 +271,15 @@ class XYview:
         if ax is None:
             ax = plt.gca()
 
-        if s1_colors:
-            assert len(set(s1))==len(s1_colors), 'Number of colors does not match s1 levels'
+        if self.s1:
+
+            for (_, df), line_color in zip(self.data.df.groupby(self.s1), self.s1_colors):
+
+                k2 = KDE2D(df[self.xlabel], df[self.ylabel], fit_kwargs=fit_kwargs, grid_kwargs=grid_kwargs)
+
+                ax.contour(*k2.data, colors=line_color, **contour_kwargs)
         else:
-             # Default will use hues of blue
-            s1_colors = plt.get_cmap('Blues')(np.linspace(0.3, 0.6, len(set(s1))))
-            s1_colors = [to_hex(color) for color in s1_colors]
-
-        assert len(self.data.df) == len(s1), 's1 length does not match XY-data'
-
-        for (_, df), line_color in zip(self.data.df.groupby(s1), s1_colors):
-
-            k2 = KDE2D(df[self.xlabel], df[self.ylabel], fit_kwargs=fit_kwargs, grid_kwargs=grid_kwargs)
-
-            ax.contour(*k2.data, colors=line_color, **contour_kwargs)
+            raise AttributeError('Need s1 attribute to add densities, please initialise instance accordingly!')
 
 
 class XYzoom(XYview):
