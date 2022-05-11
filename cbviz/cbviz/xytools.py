@@ -148,7 +148,7 @@ class XYview:
         # scatter keywords
         self.scatter_call = {'x':self.x, 'y': self.y, 'c': '0.5', 'alpha':0.5, 'linewidth':0, 's':2000/len(self.data.df)}
 
-        if self.s1_colors:
+        if self.s1 is not None:
             color_map = dict(zip(self.s1_categories, self.s1_colors))
             self.scatter_call.update({'c':self.s1.map(color_map)})
             self.handles = [Line2D([0], [0], color='w', marker='o', markerfacecolor=c, label=l) for l, c in color_map.items()]
@@ -271,7 +271,7 @@ class XYview:
         if ax is None:
             ax = plt.gca()
 
-        if self.s1:
+        if self.s1 is not None:
 
             for (_, df), line_color in zip(self.data.df.groupby(self.s1), self.s1_colors):
 
