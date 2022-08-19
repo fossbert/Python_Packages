@@ -1,4 +1,5 @@
 # pillars of work
+from sqlite3 import connect
 import numpy as np
 import pandas as pd
 
@@ -9,17 +10,18 @@ from collections import namedtuple
 # Plotting
 import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
+from matplotlib.lines import Line2D
 from matplotlib.colors import to_hex
 
 # Utils
-from .utils import DataMix, _cut_p
+from .utils import DataMix, DataNum, _cut_p
 
 # stats
-from scipy.stats import (kruskal, f_oneway, ttest_ind, mannwhitneyu)
+from scipy.stats import (kruskal, f_oneway, ttest_ind, mannwhitneyu, wilcoxon)
 from statsmodels.stats.multitest import multipletests
 
 # documentation 
-from typing import Union
+from typing import Union, Sequence
 
 
 
@@ -134,7 +136,7 @@ class StripBox:
             ymax = (box_max_values[i], box_max_values[j])
             ymin = (box_min_values[i], box_min_values[j])
             
-            if pair_method == 'Welch':
+            if pair_method == 'welch':
                 _, pval = ttest_ind(bp_arrays[i], bp_arrays[j], equal_var=False)
             else:
                 _, pval = mannwhitneyu(bp_arrays[i], bp_arrays[j])
@@ -345,6 +347,8 @@ class SplitStripBox:
                                           self.strip_colors, 
                                           self.s1,
                                           self.s2)
+        # Convenience for adding a legend
+        self.handles = [Line2D([0], [0], color='w', marker='o', markerfacecolor=c, label=l) for c, l in zip(self.strip_colors, self.s2_categories)]
             
     def __repr__(self) -> str:
         return (
@@ -391,6 +395,165 @@ class SplitStripBox:
                 scatter_call.update({k:v})
                 
         ax.scatter(**scatter_call)
+
+
+class PairedStripBox:
+       
+    """Container for producing a box- and strip plot where the the dots are connected with lines since they represent paired 
+    data.
+    
+    Parameters
+    ----------
+    data : pandas DataFrame
+        DataFrame holding information on one numeric and two categorical/string variables.
+
+    jitter : float 
+        Amount of jitter to add to the strip dots. Defaults to 0.08. 
+    
+
+    
+    """
+
+    def __init__(self, 
+                 data:pd.DataFrame,     
+                 jitter:float=0.08) -> None:
+        
+        self.data = DataNum(data)
+        self.jitter = jitter
+        self.xtick_pos, self.xtick_names = np.arange(1, self.data.ncols+1), self.data.var_names
+        self.Y = self.data.df.dropna().values
+        self.X = np.random.normal(loc=self.xtick_pos, scale=self.jitter, size=self.Y.shape)
+        self.stat_df = self._calc_pvals()
+
+       # Once we made it past all these checks, we can start with some calculations   
+
+    def __repr__(self) -> str:
+        return (
+            f"PairedStripBox(Num of boxplots: {self.data.ncols}\n"
+            f"Total data points: {len(self.data.df)})"
+        )
+        
+    def boxplt(self, ax=None, **boxplot_kwargs):
+    
+        if ax is None:
+            ax = plt.gca()
+        
+        bp_props = {'widths':0.5}
+
+        if boxplot_kwargs:
+            for k,v in boxplot_kwargs.items():
+                bp_props.update({k:v})
+        
+        ax.boxplot(self.Y, **bp_props)
+        ax.set_xticks(self.xtick_pos, self.xtick_names)
+
+    def add_strips(self, strip_colors:Sequence=None, ax=None, **scatter_kwargs):
+        
+
+        if strip_colors is None: 
+            strip_colors = [to_hex(hue) for hue in plt.get_cmap('Blues')(np.linspace(0.5, 1, self.data.ncols))]
+        else:
+            strip_colors = list(strip_colors)
+            if len(strip_colors) != self.data.ncols:
+                raise ValueError(f"Need {self.data.ncols} colors, got {len(strip_colors)}")
+
+        if ax is None:
+            ax = plt.gca()
+
+
+        scatter_call = {'x':self.X, 'y':self.Y, 's':len(self.data.df)/25, 'c':np.tile(strip_colors, len(self.Y))}
+        
+        if scatter_kwargs:
+            for k, v in scatter_kwargs.items():
+                scatter_call.update({k:v})
+                
+        ax.scatter(**scatter_call)
+
+
+    def connect_strips(self, ax=None, **line_kwargs):
+
+        if ax is None:
+           ax = plt.gca()
+
+        line_props = {'lw':0.25, 'c':'0.5', 'alpha':0.7, 'zorder':-1}
+
+        if line_kwargs:
+            for k, v in line_kwargs.items():
+                line_props.update({k:v})
+
+        ax.plot(self.X.T, self.Y.T, **line_props)
+
+
+    def add_pair_p(self, 
+                   group_A:str, 
+                   group_B:str, 
+                   connect_top: bool = True, 
+                   yoffset:float=0.2,
+                   cut_pval:bool = True,
+                   ax=None,
+                   line_kwargs:dict = None,
+                   **text_kwargs):
+
+
+        line_props = {'lw':0.5, 'c':'0.15'}
+
+        if line_kwargs:
+            line_props.update(line_kwargs)
+            
+        text_props = {'fontsize':"x-small", 'ha':'center'}
+        
+        if text_kwargs:
+            for k, v in text_kwargs.items():
+                text_props.update({k:v})
+     
+        stats = self.stat_df.copy()
+
+        if len(stats)>=3:
+            print('Adjusting for testing multiple hypothesis using the Bonferroni method.')
+            stats['pval'] = multipletests(stats['pval'], method='bonferroni')[1] 
+
+        xpos = np.array(stats.loc[(group_A, group_B), 'xpos'])
+
+        line_xpos = np.repeat(xpos, 2) + 1
+
+        ypos = np.max(self.Y, axis=0)[xpos] if connect_top else np.min(self.Y, axis=0)[xpos]
+
+        line_ypos = _get_connect_lines(ypos, yoffset, connect_top)
+
+        if ax is None:
+            ax = plt.gca()
+
+        ax.plot(line_xpos, line_ypos, **line_props)
+
+        xtext = np.sum(xpos+1)/2
+        ytext = np.max(line_ypos) if connect_top else np.min(line_ypos)
+        pval = stats.loc[(group_A, group_B), 'pval']
+        pval_string = _cut_p(pval) if cut_pval else f'{pval:.2e}'
+
+        ax.text(xtext, ytext, pval_string, ha='center')
+
+
+    def _calc_pvals(self):
+
+        """Calculates pairwise p-values treating values as PAIRED. Default method is Wilcoxon Signed Rank test."""
+
+        pair_names = []
+        pvals = []
+        pair_xpos = []
+
+        for i, j in combinations(range(self.data.ncols), 2):
+
+            pair_names.append((self.data.var_names[i], self.data.var_names[j]))
+
+            pvals.append(wilcoxon(self.Y.T[i], self.Y.T[j])[1])
+
+            pair_xpos.append((i, j))
+
+        return pd.DataFrame({'xpos':pair_xpos, 'pval':pvals}, index=pd.MultiIndex.from_tuples(pair_names))
+
+      
+
+
 
 
 ### Helper functions

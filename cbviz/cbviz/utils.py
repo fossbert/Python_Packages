@@ -27,7 +27,7 @@ class DataNum:
         self._check_dtypes(data, self.ncols) 
         self.df = data.copy()
         self.var_names = self.df.columns.to_list()
-        self.nans = (len(  self.df) - self.df.count()).sum()
+        self.nans = (len(self.df) - self.df.count()).sum()
 
     def __repr__(self) -> str:
         return (f"DataNum(Observations: {len(self.df)}, Features: {len(self.var_names)}, Total NaN: {self.nans})")
@@ -161,6 +161,8 @@ def _cut_p(pval):
         return '**'
     elif pval < 0.05:
         return "*"
+    elif pval < 0.1:
+        return f'{pval:.2f}'
     else:
         return 'ns'
     

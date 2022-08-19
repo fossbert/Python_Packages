@@ -90,26 +90,27 @@ def _prep_ges(ges: Union[pd.Series,pd.DataFrame],
     
     assert (isinstance(ges, pd.Series) or isinstance(ges, pd.DataFrame)), 'Need pandas Series or DataFrame!'
         
+    ges_out = ges.copy()
     if isinstance(ges, pd.Series):
       
-      if ges.name is None:
-        ges.name = 'ges'
-      if ges.isnull().any():
-        ges.dropna(inplace=True)    
+      if ges_out.name is None:
+        ges_out.name = 'ges'
+      if ges_out.isnull().any():
+        ges_out.dropna(inplace=True)    
         
-      if ges.index.duplicated().any():
-        ges = ges.groupby(level=0).mean() # collapse by averaging
+      if ges_out.index.duplicated().any():
+        ges_out = ges_out.groupby(level=0).mean() # collapse by averaging
       
-      ges.sort_values(ascending=asc_sort, inplace=True)
+      ges_out.sort_values(ascending=asc_sort, inplace=True)
       
     else:
-      if ges.isnull().any().any():
-        ges.dropna(inplace=True)
+      if ges_out.isnull().any().any():
+        ges_out.dropna(inplace=True)
           
-      if ges.index.duplicated().any(): 
-        ges = ges.groupby(level=0).mean()
+      if ges_out.index.duplicated().any(): 
+        ges_out = ges.groupby(level=0).mean()
                  
-    return ges
+    return ges_out
     
   
   
