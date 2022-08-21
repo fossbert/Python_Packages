@@ -509,7 +509,7 @@ class PairedStripBox:
         stats = self.stat_df.copy()
 
         if len(stats)>=3:
-            print('Adjusting for testing multiple hypothesis using the Bonferroni method.')
+            print('Adjusting for testing multiple hypotheses using the Bonferroni method.')
             stats['pval'] = multipletests(stats['pval'], method='bonferroni')[1] 
 
         xpos = np.array(stats.loc[(group_A, group_B), 'xpos'])
