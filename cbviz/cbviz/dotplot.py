@@ -1,5 +1,6 @@
 # computing
 from collections import namedtuple
+from typing import Sequence
 import numpy as np
 import pandas as pd
 
@@ -78,8 +79,6 @@ class Dotplot:
         else:
             return valus_flat
             
-        
-    
     def cut_size(self, 
                  reverse: bool = False,
                  bins:tuple=None, 
@@ -108,32 +107,56 @@ class Dotplot:
         
         print('Assigned sizes as follows:')
         [print(f'{bin:.2e} -> size {size}') for bin, size in self.bins]
+
+
+    def adjust_ax_lims(self, offset:float=0.5, ax=None):
+
+        if ax is None:
+            ax = plt.gca()
+
+        ax.set_ylim(-offset, self.data.nrows-1+offset)
+        ax.set_xlim(-offset, self.data.ncols-1+offset)
             
-    def set_ticklabels(self, ax=None, **text_kwargs):
+    def set_ticklabels(self, ax=None, adjust_x:bool=False, **text_kwargs):
         
         if ax is None:
             ax = plt.gca()
             
-        ax.set_xticks(np.arange(self.data.ncols), self.tick_names.xticks, **text_kwargs)
-        ax.set_yticks(np.arange(self.data.nrows), self.tick_names.yticks, **text_kwargs)
+        text_props = {'fontsize':'x-small'}
+
+        if text_kwargs:
+            for k,v in text_kwargs.items():
+                text_props.update({k:v})
+
+        ax.set_yticks(np.arange(self.data.nrows), self.tick_names.yticks, **text_props)
+        if adjust_x:
+            text_props.update({'rotation':60, 'rotation_mode':'anchor', 'ha':'right'})
+        ax.set_xticks(np.arange(self.data.ncols), self.tick_names.xticks, **text_props)
+         
         
+    def get_size_handles(self, reverse:bool=False, marker_sizes:Sequence=None, num_fmt:str='1.1e', **line_kwargs):
         
-    def get_size_handles(self, reverse:bool=False, marker_sizes:tuple=None, num_fmt:str='1.1e', **line_kwargs):
+        lbls, msizes = zip(*[(f'<= {b:{num_fmt}}', np.sqrt(size)) for b, size in self.bins if size>0])
         
-        lbls = [f'<= {bin:{num_fmt}}' for bin, size in self.bins if size>0]
-        
-        if not marker_sizes:
-            marker_sizes = np.arange(1, len(lbls)+1)*4
-        
-        if len(lbls)!=len(marker_sizes):
-            raise ValueError(f'{len(lbls)} bins, but {len(marker_sizes)} sizes. That does not work.')
-        
+        if marker_sizes:
+           
+           if len(lbls)!=len(marker_sizes):
+              raise ValueError(f'{len(lbls)} bins, but {len(marker_sizes)} sizes. That does not work.')
+           else:
+              msizes = list(marker_sizes)
+
         if reverse:
-            marker_sizes = marker_sizes[::-1]
+            msizes = msizes[::-1]
+
+        line_props = {'marker':'o', 'color':'w', 'mfc':'0.55', 'mec':'0.25', 'mew':0.8}
+
+        if line_kwargs:
+            for k, v in line_kwargs.items():
+                line_props.update({k:v})
         
-        return [Line2D([0], [0], marker='o', color='w', markerfacecolor='0.25', label=l, markersize=s) for l, s in zip(lbls, marker_sizes)]
-    
-    def annotate(self, scatter:PathCollection, str_fmt:str="1.1f", ax=None, **text_kwargs):
+        return [Line2D([0], [0],  label=l, markersize=s, **line_props) for l, s in zip(lbls, msizes)]
+
+    def annotate(self, scatter:PathCollection, str_fmt:str="1.1f", reverse_anno: bool=False, ax=None,  **text_kwargs):
         
         if ax is None:
             ax = plt.gca()
@@ -144,7 +167,10 @@ class Dotplot:
             for k,v in text_kwargs.items():
                 text_props.update({k:v})
         
-        it = zip(self.x, self.y, self.size_raw, self.size_cut)
+        if reverse_anno:
+            it = zip(self.y, self.x, self.size_raw, self.size_cut)
+        else:
+            it = zip(self.x, self.y, self.size_raw, self.size_cut)
         # if vertical:
         #     
         # else:
@@ -193,10 +219,10 @@ class Corrplot:
         if self.include_diagonal:
             k_mask = 0
         elif self.upper_left:
-            k_mask = -1
-        else: 
             k_mask = 1
-        corr_df = corr_df.where(np.tril(mask, k=k_mask)) if self.upper_left else corr_df.where(np.triu(mask, k=k_mask))
+        else: 
+            k_mask = -1
+        corr_df = corr_df.where(np.triu(mask, k=k_mask)) if self.upper_left else corr_df.where(np.tril(mask, k=k_mask))
         
         # Melting
         corr_df_melt = corr_df.melt(var_name='column', value_name='corr', ignore_index=False).reset_index()

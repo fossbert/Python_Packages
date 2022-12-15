@@ -279,7 +279,7 @@ class XYview:
 
                 ax.contour(*k2.data, colors=line_color, **contour_kwargs)
         else:
-            raise AttributeError('Need s1 attribute to add densities, please initialise instance accordingly!')
+            raise AttributeError('Need s1 attribute to add densities, please initiate instance accordingly!')
 
 
 class XYzoom(XYview):
@@ -316,11 +316,11 @@ class XYzoom(XYview):
         super().__init__(data, **scatter_kwargs)
         self.xmin, self.ymin = self.data.df.min().values
         self.xmax, self.ymax = self.data.df.max().values
-        self.zoom_margin = zoom_margin * np.ptp(self.data.df.values)
+        self.x_zoom_margin, self.y_zoom_margin = zoom_margin * np.ptp(self.data.df.values, axis=0)
         self.xrange = self._deduce_range(xrange, 'x')
-        self.xrange_zoom = self._adjust_range(self.xrange)
+        self.xrange_zoom = self._adjust_range(self.xrange, self.x_zoom_margin)
         self.yrange = self._deduce_range(yrange, 'y')
-        self.yrange_zoom = self._adjust_range(self.yrange)
+        self.yrange_zoom = self._adjust_range(self.yrange, self.y_zoom_margin)
         self.rect_width, self.rect_height = self.xrange.max-self.xrange.min, self.yrange.max-self.yrange.min
         self.zoom_data = self._filter()
         
@@ -353,9 +353,9 @@ class XYzoom(XYview):
                 raise
           
           
-    def _adjust_range(self, range):
+    def _adjust_range(self, range, zoom_margin):
         
-        adjust = [val-self.zoom_margin if i==0 else val+self.zoom_margin for i, val in enumerate(range)]
+        adjust = [val-zoom_margin if i==0 else val+zoom_margin for i, val in enumerate(range)]
     
         return AxRange(*adjust)
     

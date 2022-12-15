@@ -364,8 +364,13 @@ def _format_xaxis_ges(ges_length:int, ax=None):
     
     if ges_length >= 10_000:
         stepsize = 1000
-    else:
+    elif ges_length >=2_000:
         stepsize = 500
+    elif ges_length >= 500:
+        stepsize = 100
+    else:
+        stepsize = 50
+        
     xticks = np.percentile(np.arange(0, ges_length, stepsize), [0, 50, 100])
     xtick_aln = ['left', 'center', 'right']
     

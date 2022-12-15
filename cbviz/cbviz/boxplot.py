@@ -364,12 +364,13 @@ class SplitStripBox:
         s2_width = self.bp_width*self.n_s2 + (self.n_s2-1)*self.space_within #width of all s2 boxplots plus space
 
         total_width = s2_width + self.space_between
-        s1_grid = np.arange(0, self.n_s1*total_width, total_width)
+
+        s1_grid = np.arange(0, round(self.n_s1*total_width,1), round(total_width, 1))
 
         # compute a grid of s2 level boxplot positions for every s1 level
         xpos = [np.linspace(-unit_width*(self.n_s2-1), unit_width*(self.n_s2-1), self.n_s2) + i for i in s1_grid]
-        s1_xtick_pos = [np.median(x) for x in xpos] # median for xtick labeling
-        all_xtick_pos = [y for x in xpos for y in x] # to pass to ax.boxplot
+        s1_xtick_pos = [round(np.median(x), 1) for x in xpos] # median for xtick labeling
+        all_xtick_pos = [round(y, 1) for x in xpos for y in x] # to pass to ax.boxplot
         
         return TickInfo(s1_xtick_pos, self.s1_categories), all_xtick_pos
         
@@ -560,12 +561,19 @@ class PairedStripBox:
 
 def _get_bp_arrays(data: pd.DataFrame, value_var:str, *categories):
     
-    return data.groupby(list(categories)).apply(lambda x: x[value_var].values).values
+    categories = list(categories)
+
+    return data.groupby(categories).apply(lambda x: x[value_var].values).values
 
 
 def _add_strip_data(data:pd.DataFrame, value_var:str, xpos:list, jitter:float, colors:list, *categories):
         
-        grouped_df = data.groupby(list(categories))
+        categories = list(categories)
+
+        if len(categories)==1:
+            categories = categories.pop()
+
+        grouped_df = data.groupby(categories)
 
         res = []
         
