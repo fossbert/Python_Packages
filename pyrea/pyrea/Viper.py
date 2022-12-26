@@ -134,6 +134,7 @@ class Viper:
             show_row_labels:bool=False,
             show_col_labels: bool=True,
             show_numbers:bool = False,
+            trim_rownames:bool = False,
             number_fmt:str = '1.1f',
             figsize: tuple=None,
             number_kw:dict = None,
@@ -212,7 +213,11 @@ class Viper:
                 if show_row_labels:
                     ax_mesh.set_yticks(np.arange(nrows) + 0.5)
                     # TODO: Add more flexibility here: trimming names
-                    ax_mesh.set_yticklabels(ndata.index.str.split('_', n=1).str[-1], fontsize='x-small')
+                    if trim_rownames:
+                        rn = ndata.index.str.split('_', n=1).str[-1]
+                    else:
+                        rn = ndata.index
+                    ax_mesh.set_yticklabels(rn, fontsize='x-small')
                     ax_mesh.yaxis.set_label_position('right')
                     ax_mesh.yaxis.tick_right()
                 else:
@@ -268,7 +273,11 @@ class Viper:
                 if show_row_labels:
                     ax_mesh.set_yticks(np.arange(nrows) + 0.5)
                     # TODO: Add more flexibility here: trimming names
-                    ax_mesh.set_yticklabels(ndata.index.str.split('_', n=1).str[-1], fontsize='x-small')
+                    if trim_rownames:
+                        rn = ndata.index.str.split('_', n=1).str[-1]
+                    else:
+                        rn = ndata.index
+                    ax_mesh.set_yticklabels(rn, fontsize='x-small')
                     ax_mesh.yaxis.set_label_position('right')
                     ax_mesh.yaxis.tick_right()
                 else:
@@ -371,7 +380,11 @@ class Viper:
                 if show_row_labels:
                     ax_mesh.set_yticks(np.arange(nrows) + 0.5)
                     # TODO: Add more flexibility here: trimming names
-                    ax_mesh.set_yticklabels(ndata.index.str.split('_', n=1).str[-1], fontsize='x-small')
+                    if trim_rownames:
+                        rn = ndata.index.str.split('_', n=1).str[-1]
+                    else:
+                        rn = ndata.index
+                    ax_mesh.set_yticklabels(rn, fontsize='x-small')
                     ax_mesh.yaxis.set_label_position('right')
                     ax_mesh.yaxis.tick_right()
                 else:

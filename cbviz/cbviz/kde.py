@@ -36,7 +36,7 @@ class KDE:
             data = pd.Series(data)
             
         self.data = data.dropna()
-        self.kde = _fit_kde(self.data.values, fit_kwargs) # important to find index or values
+        self.kde = _fit_kde(self.data.values, fit_kwargs=fit_kwargs) # important to find index or values
         self.curve = _get_curve(self.data, None, fit_kwargs, grid_kwargs)
         
         
@@ -347,7 +347,7 @@ def _get_curve(data:Union[pd.DataFrame, pd.Series],
     xvals = data[x].values if x else data.values
     
     # fit kde and squeeze bandwidth
-    kde = _fit_kde(xvals, fit_kwargs)
+    kde = _fit_kde(xvals, fit_kwargs=fit_kwargs)
     bw = np.sqrt(kde.covariance.squeeze())
     
     # get support grid, pass further arguments if provided

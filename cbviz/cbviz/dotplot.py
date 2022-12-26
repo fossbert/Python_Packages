@@ -240,6 +240,17 @@ class Corrplot:
             hlcust = hierarchy.linkage(distance.squareform(1 - corr_df), method='complete') # no option for Hierarch. Clustering
             ord = hierarchy.dendrogram(hlcust, labels=corr_df.index, no_plot=True)['leaves']
             corr_df = corr_df.iloc[ord, ord]
+
+
+        #TODO: add dendrogram to rows at least
+        #      number_of_leaves = len(dendro['leaves'])
+        #     max_dependent_coord = max(map(max, dendro['dcoord']))
+            
+        # if type == 'row':
+        #     [ax.plot(yline, xline, c='k', lw=0.8) for xline, yline in zip(dendro['icoord'], dendro['dcoord'])]
+        #     ax.set_ylim(0, number_of_leaves * 10)
+        #     ax.set_xlim(max_dependent_coord, 0)
+            
             
         return corr_df
 
