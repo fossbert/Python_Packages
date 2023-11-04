@@ -242,7 +242,7 @@ def get_tmats(dset: Union[pd.DataFrame, pd.Series])-> Tuple[pd.DataFrame, pd.Dat
     # rank computation
     t2 = dset.rank(method='first') / (len(dset)+1)
     t1 = np.abs(t2 - 0.5) * 2
-    t1 = t1 + (1 - np.max(t1))/2
+    t1 = t1 + (1 - np.max(t1, axis=0))/2
 
     # transform to quantiles of a normal distribution
     if isinstance(dset, pd.Series):

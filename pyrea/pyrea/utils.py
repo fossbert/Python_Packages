@@ -148,8 +148,35 @@ def load_genesets(collection: str = 'h',
     return genesets_in
   except:
     raise ImportError(f'Something went wrong when trying to import {fp}')
-      
+  
+
+
+def load_species_converter(keys="human"):
     
+    koptions =  ['human', 'mouse']
+
+    if keys.lower() not in koptions:
+      raise ValueError(f"{keys} is not a suitable option. Please choose from {', '.join(koptions)}.")
+  
+  
+    DIR = os.path.dirname(os.path.realpath(__file__))
+
+    fp = os.path.join(DIR, 'data', 'Human_Mouse_Homology.json')
+    bn = os.path.basename(fp)
+      
+    try:
+      with open(fp) as infile:
+        genesets_in = json.load(infile)
+        
+        if keys == 'mouse':
+          genesets_in = {v:k for k, v in genesets_in.items()}
+      
+      print(f"Loaded {bn} into a dictionary for you.")
+      return genesets_in
+    except:
+      raise ImportError(f'Something went wrong when trying to import {fp}')
+        
+      
 
   
   

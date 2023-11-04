@@ -117,26 +117,43 @@ class Dotplot:
         ax.set_ylim(-offset, self.data.nrows-1+offset)
         ax.set_xlim(-offset, self.data.ncols-1+offset)
             
-    def set_ticklabels(self, ax=None, adjust_x:bool=False, **text_kwargs):
+    def set_ticklabels(self, which:str='xy', adjust_x:bool=False, ax=None, **text_kwargs):
         
         if ax is None:
             ax = plt.gca()
             
         text_props = {'fontsize':'x-small'}
-
         if text_kwargs:
             for k,v in text_kwargs.items():
                 text_props.update({k:v})
 
-        ax.set_yticks(np.arange(self.data.nrows), self.tick_names.yticks, **text_props)
+        text_props_x = text_props.copy()
+
         if adjust_x:
-            text_props.update({'rotation':60, 'rotation_mode':'anchor', 'ha':'right'})
-        ax.set_xticks(np.arange(self.data.ncols), self.tick_names.xticks, **text_props)
-         
+            text_props_x.update({"rotation":60, "rotation_mode":"anchor", "ha":"right"})
+
+        options = ['x', 'y', 'xy']
+
+        if which in options:
+            
+            if which == 'x':
+                ax.set_xticks(np.arange(self.data.ncols), self.tick_names.xticks, **text_props_x)
+            
+            elif which == 'y':
+                ax.set_yticks(np.arange(self.data.nrows), self.tick_names.yticks, **text_props)
+
+            else:
+                ax.set_xticks(np.arange(self.data.ncols), self.tick_names.xticks, **text_props_x)
+                ax.set_yticks(np.arange(self.data.nrows), self.tick_names.yticks, **text_props)
+
+        else:
+            raise ValueError(f"{which} is not a valid option, choose from {' '.join(options)}")
+        
+       
         
     def get_size_handles(self, reverse:bool=False, marker_sizes:Sequence=None, num_fmt:str='1.1e', **line_kwargs):
         
-        lbls, msizes = zip(*[(f'<= {b:{num_fmt}}', np.sqrt(size)) for b, size in self.bins if size>0])
+        lbls, msizes = zip(*[(f'≤ {b:{num_fmt}}', np.sqrt(size)) for b, size in self.bins if size>0])
         
         if marker_sizes:
            

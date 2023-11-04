@@ -19,6 +19,7 @@ from .utils import DataMix, DataNum, _cut_p
 # stats
 from scipy.stats import (kruskal, f_oneway, ttest_ind, mannwhitneyu, wilcoxon)
 from statsmodels.stats.multitest import multipletests
+import scikit_posthocs as sp
 
 # documentation 
 from typing import Union, Sequence
@@ -110,58 +111,56 @@ class StripBox:
             
         return pval
     
-    def calc_pairwise_p(self, pair_method:str='welch', adj_method:str='fdr_bh'):
+    def calc_pairwise_p(self, posthoc_method:str='dunn'):
         
         bp_arrays = _get_bp_arrays(self.data.df, self.ylabel, self.s1)
         box_max_values, box_min_values = list(zip(*[(np.max(i), np.min(i)) for i in bp_arrays]))
          
-        pair_options = ['welch', 'mannwhitneyu']
+        posthoc_options = ['dunn', 'tukey']
         
-        adj_options = ['fdr_bh', 'bonferroni']
+        if posthoc_method not in posthoc_options:
+            raise ValueError(f'Valid global value methods are: {", ".join(posthoc_options)}, got: {posthoc_method}')
         
-        if pair_method not in pair_options:
-            raise ValueError(f'Valid global value methods are: {", ".join(pair_options)}, got: {pair_method}')
-        
-        if adj_method not in adj_options:
-            raise ValueError(f'Valid global value methods are: {", ".join(adj_options)}, got: {adj_method}')
-        
-        combos = combinations(range(len(self.s1_categories)), 2)
+        if posthoc_method=='dunn':
+            posthoc = sp.posthoc_dunn(self.data.df, val_col="x", group_col="s1", p_adjust="fdr_bh")
+        else:
+            posthoc = sp.posthoc_tukey(self.data.df, val_col="x", group_col="s1")
+
+        combos = combinations(range(len(posthoc.columns)), 2)
 
         index = []
         data = []
         for i, j in combos:
             
-            contrast = (self.s1_categories[i], self.s1_categories[j])
+            contrast = (posthoc.columns[i], posthoc.columns[j])
             xpos = (i+1, j+1)
             ymax = (box_max_values[i], box_max_values[j])
             ymin = (box_min_values[i], box_min_values[j])
             
-            if pair_method == 'welch':
-                _, pval = ttest_ind(bp_arrays[i], bp_arrays[j], equal_var=False)
-            else:
-                _, pval = mannwhitneyu(bp_arrays[i], bp_arrays[j])
-    
             index.append(contrast)
-            data.append((xpos, ymax, ymin, pval))
+            data.append((xpos, ymax, ymin, posthoc.iloc[i, j]))
             
         index_mult = pd.MultiIndex.from_tuples(index, names=["GroupA", "GroupB"])
-        df = pd.DataFrame(data,  index=index_mult, columns=['xpos', 'ymax', 'ymin', 'pval'])
-        if len(df)>1:
-            padj =  multipletests(df['pval'].values, method=adj_method)[1]
-            df.insert(4, 'padj', padj)
+        df = pd.DataFrame(data,  index=index_mult, columns=['xpos', 'ymax', 'ymin', 'padj'])
         
         self.pairwise_stats = df
         
     
-    def boxplt(self, ax=None, **boxplot_kwargs):
+    def boxplt(self, ax=None, adjust_x=False, **boxplot_kwargs):
         
         if ax is None:
             ax = plt.gca()
-        
+
+        x_tick_props = {}
+
         bp_arrays = _get_bp_arrays(self.data.df, self.ylabel, self.s1)
         
         ax.boxplot(bp_arrays, **boxplot_kwargs)
-        ax.set_xticks(np.arange(len(self.s1_categories))+1, self.s1_categories)
+
+        if adjust_x:
+            x_tick_props.update({"rotation":60, "rotation_mode":"anchor", "ha":"right"})
+            
+        ax.set_xticks(np.arange(len(self.s1_categories))+1, self.s1_categories, **x_tick_props)
         
     def add_strips(self, ax=None, **scatter_kwargs):
         
@@ -365,7 +364,10 @@ class SplitStripBox:
 
         total_width = s2_width + self.space_between
 
-        s1_grid = np.arange(0, round(self.n_s1*total_width,1), round(total_width, 1))
+        s1_grid = np.arange(0, round(self.n_s1*total_width, 1), round(total_width, 1))
+
+        if len(s1_grid) > self.n_s1:
+            s1_grid = s1_grid[:self.n_s1] # there are some instances (probably due to rounding where the above returns a grid of n_s1+1)
 
         # compute a grid of s2 level boxplot positions for every s1 level
         xpos = [np.linspace(-unit_width*(self.n_s2-1), unit_width*(self.n_s2-1), self.n_s2) + i for i in s1_grid]
@@ -374,15 +376,21 @@ class SplitStripBox:
         
         return TickInfo(s1_xtick_pos, self.s1_categories), all_xtick_pos
         
-    def boxplt(self, ax=None, **boxplot_kwargs):
+    def boxplt(self, ax=None, adjust_x=False, **boxplot_kwargs):
     
         if ax is None:
             ax = plt.gca()
         
+        x_tick_props = {}
+
         bp_arrays = _get_bp_arrays(self.data.df, self.ylabel, self.s1, self.s2)
         
         ax.boxplot(bp_arrays, widths=self.bp_width, positions=self.xtick_pos, **boxplot_kwargs)
-        ax.set_xticks(*self.s1_ticks)
+
+        if adjust_x:
+            x_tick_props.update({"rotation":60, "rotation_mode":"anchor", "ha":"right"})
+     
+        ax.set_xticks(*self.s1_ticks, **x_tick_props)
 
     def add_strips(self, ax=None, **scatter_kwargs):
         
@@ -434,10 +442,12 @@ class PairedStripBox:
             f"Total data points: {len(self.data.df)})"
         )
         
-    def boxplt(self, ax=None, **boxplot_kwargs):
+    def boxplt(self, ax=None, adjust_x=False, **boxplot_kwargs):
     
         if ax is None:
             ax = plt.gca()
+
+        x_tick_props = {}
         
         bp_props = {'widths':0.5}
 
@@ -446,7 +456,11 @@ class PairedStripBox:
                 bp_props.update({k:v})
         
         ax.boxplot(self.Y, **bp_props)
-        ax.set_xticks(self.xtick_pos, self.xtick_names)
+        
+        if adjust_x:
+            x_tick_props.update({"rotation":60, "rotation_mode":"anchor", "ha":"right"})
+            
+        ax.set_xticks(self.xtick_pos, self.xtick_names, **x_tick_props)
 
     def add_strips(self, strip_colors:Sequence=None, ax=None, **scatter_kwargs):
         
@@ -460,7 +474,6 @@ class PairedStripBox:
 
         if ax is None:
             ax = plt.gca()
-
 
         scatter_call = {'x':self.X, 'y':self.Y, 's':len(self.data.df)/25, 'c':np.tile(strip_colors, len(self.Y))}
         

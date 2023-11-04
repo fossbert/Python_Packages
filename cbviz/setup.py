@@ -14,5 +14,5 @@ setup(
     'statsmodels>=0.12.2',
     'matplotlib>=3.5.0' 
     ],
-    python_requires='>=3.8.*',
+    python_requires='>=3.8',
     )
