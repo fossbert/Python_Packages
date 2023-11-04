@@ -114,6 +114,10 @@ class StripBox:
     def calc_pairwise_p(self, posthoc_method:str='dunn'):
         
         bp_arrays = _get_bp_arrays(self.data.df, self.ylabel, self.s1)
+        
+        if (ngroups:=len(bp_arrays))<3:
+            raise ValueError(f'No need for posthoc adjustment with {ngroups} groups!')
+
         box_max_values, box_min_values = list(zip(*[(np.max(i), np.min(i)) for i in bp_arrays]))
          
         posthoc_options = ['dunn', 'tukey']
