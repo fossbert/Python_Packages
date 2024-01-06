@@ -53,13 +53,16 @@ def gene_sets_to_regulon(genesets: dict,
     
     return df
   
-def _gene_set_to_df(gene_set: set, ns: int):
+def _gene_set_to_df(gene_set: set, ns: int, negative: bool=False):
   
   mor = np.ones(ns)
-   
-  return pd.DataFrame(data=zip(gene_set, mor, mor/ns),
-                      columns=['target', 'mor', 'likelihood'])
 
+  if negative:
+
+    mor = mor*-1
+   
+  return pd.DataFrame(data=zip(gene_set, mor, np.abs(mor/ns)),
+                      columns=['target', 'mor', 'likelihood'])
 
 
 def _prep_ges(ges: Union[pd.Series,pd.DataFrame], 
@@ -111,6 +114,93 @@ def _prep_ges(ges: Union[pd.Series,pd.DataFrame],
         ges_out = ges.groupby(level=0).mean()
                  
     return ges_out
+
+
+def sig_to_reg(ges: Union[pd.Series,pd.DataFrame], 
+              direction: str='both',
+              nn:int = 50,
+              reverse: bool = False):
+  
+
+    """[This function expects a numeric signature and will build a regulon from the top nn genes (rows)]
+
+    Parameters
+    ----------
+    ges :
+        pd.Series or pd.DataFrame
+    direction :
+        str:  (Default value = 'both'). Further options include 'up' and 'down'
+    nn :
+        int:  (Default value = 50)
+    reverse :
+        bool:  (Default value = False)
+
+    Returns
+    -------
+    pd.DataFrame
+        A regulon representing the most up|downregulated genes for the signature(s).
+    """
+
+    ges_prepped = _prep_ges(ges)
+
+    dir_options = ['both', 'up', 'down']
+
+    if direction not in dir_options:
+
+      raise ValueError(f"{direction} is not a valid option, please choose from: {', '.join(dir_options)}")
+    
+    if len(ges_prepped.shape)<2: # For 1-dimensional signatures, convert to 2 dimensions
+
+      ges_prepped = ges_prepped.to_frame()
+
+    reg_dict = {k:_get_ges_tops(v, direction, nn) for k, v in ges_prepped.items()}
+
+    d_reg = pd.concat(reg_dict)
+    d_reg.index.set_names('source', level=0, inplace=True)
+    d_reg.reset_index(level=0, inplace=True)
+
+    if reverse:
+
+      d_reg.loc[:,'mor'] = d_reg.loc[:,'mor'] * -1
+
+    return d_reg
+    
+
+def _get_ges_tops(ges:pd.Series, direction:str, nn:int):
+  
+  """Helper function, returs top nn index labels based on the numeric results of the signature.
+  """
+
+  if direction == 'both':
+
+    genes_down =  ges.nsmallest(nn).index.to_list()
+    genes_up = ges.nlargest(nn).index.to_list()
+
+    d_down = _gene_set_to_df(genes_down, nn, negative=True)
+
+    d_up = _gene_set_to_df(genes_up, nn)
+
+    d_out = pd.concat([d_up, d_down], axis=0)
+
+    d_out.loc[:,'likelihood'] =  d_out['likelihood'] * 0.5
+    
+    return  d_out
+  
+  elif direction == 'up':
+
+    genes =  ges.nlargest(nn).index.to_list()
+
+    return _gene_set_to_df(genes, nn)
+  
+  elif direction == 'down':
+
+    genes =  ges.nsmallest(nn).index.to_list()
+
+    return _gene_set_to_df(genes, nn, negative=True)
+
+
+    
+
     
   
   

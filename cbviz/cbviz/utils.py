@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from matplotlib import colors
 
 # type checking
-from pandas.api.types import infer_dtype, is_categorical_dtype, is_integer_dtype
+from pandas.api.types import infer_dtype, CategoricalDtype, is_integer_dtype
 from itertools import product
 # as usual
 from collections import namedtuple
@@ -145,7 +145,7 @@ Vars = namedtuple('Vars', 'x y size color')
 
 def series_cleaner(series):
     
-    if is_categorical_dtype(series):
+    if isinstance(series.dtype, CategoricalDtype):
         return series.cat.remove_unused_categories()
     
     elif is_integer_dtype(series):

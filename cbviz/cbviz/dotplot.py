@@ -71,13 +71,13 @@ class Dotplot:
         if fillna:
             df_piv = df_piv.fillna(fillna)
         
-        valus_flat = df_piv.values.ravel()
+        values_flat = df_piv.values.ravel()
         
         if get_tick_labels:
             tick_names = TickNames(df_piv.columns.to_list(), df_piv.index.to_list())
-            return tick_names, valus_flat
+            return tick_names, values_flat
         else:
-            return valus_flat
+            return values_flat
             
     def cut_size(self, 
                  reverse: bool = False,
@@ -242,8 +242,9 @@ class Corrplot:
         corr_df = corr_df.where(np.triu(mask, k=k_mask)) if self.upper_left else corr_df.where(np.tril(mask, k=k_mask))
         
         # Melting
-        corr_df_melt = corr_df.melt(var_name='column', value_name='corr', ignore_index=False).reset_index()
-        # Fix order
+        corr_df_melt = corr_df.melt(var_name='column', value_name='corr', ignore_index=False).reset_index().set_axis(["index", "column", "corr"], axis=1)
+
+        # Fix order - be agnostic of index name
         corr_df_melt['index'] = corr_df_melt['index'].astype('category').cat.reorder_categories(corr_df.columns.to_list())
         corr_df_melt['column'] = corr_df_melt['column'].astype('category').cat.reorder_categories(corr_df.columns.to_list())
         
@@ -267,7 +268,6 @@ class Corrplot:
         #     [ax.plot(yline, xline, c='k', lw=0.8) for xline, yline in zip(dendro['icoord'], dendro['dcoord'])]
         #     ax.set_ylim(0, number_of_leaves * 10)
         #     ax.set_xlim(max_dependent_coord, 0)
-            
             
         return corr_df
 

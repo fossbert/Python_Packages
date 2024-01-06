@@ -126,9 +126,9 @@ class StripBox:
             raise ValueError(f'Valid global value methods are: {", ".join(posthoc_options)}, got: {posthoc_method}')
         
         if posthoc_method=='dunn':
-            posthoc = sp.posthoc_dunn(self.data.df, val_col="x", group_col="s1", p_adjust="fdr_bh")
+            posthoc = sp.posthoc_dunn(self.data.df, val_col=self.ylabel, group_col=self.s1, p_adjust="fdr_bh")
         else:
-            posthoc = sp.posthoc_tukey(self.data.df, val_col="x", group_col="s1")
+            posthoc = sp.posthoc_tukey(self.data.df, val_col=self.ylabel, group_col=self.s1)
 
         combos = combinations(range(len(posthoc.columns)), 2)
 
@@ -526,10 +526,6 @@ class PairedStripBox:
      
         stats = self.stat_df.copy()
 
-        if len(stats)>=3:
-            print('Adjusting for testing multiple hypotheses using the Bonferroni method.')
-            stats['pval'] = multipletests(stats['pval'], method='bonferroni')[1] 
-
         xpos = np.array(stats.loc[(group_A, group_B), 'xpos'])
 
         line_xpos = np.repeat(xpos, 2) + 1
@@ -545,7 +541,8 @@ class PairedStripBox:
 
         xtext = np.sum(xpos+1)/2
         ytext = np.max(line_ypos) if connect_top else np.min(line_ypos)
-        pval = stats.loc[(group_A, group_B), 'pval']
+        pval = "fwer" if stats.shape[1]>2 else "pval"
+        pval = stats.loc[(group_A, group_B), pval]
         pval_string = _cut_p(pval) if cut_pval else f'{pval:.2e}'
 
         ax.text(xtext, ytext, pval_string, ha='center')
@@ -567,7 +564,14 @@ class PairedStripBox:
 
             pair_xpos.append((i, j))
 
-        return pd.DataFrame({'xpos':pair_xpos, 'pval':pvals}, index=pd.MultiIndex.from_tuples(pair_names))
+
+        stats = pd.DataFrame({'xpos':pair_xpos, 'pval':pvals}, index=pd.MultiIndex.from_tuples(pair_names))
+
+        if len(stats)>=3:
+            print('Adjusting for testing multiple hypotheses using the Bonferroni method.')
+            stats['fwer'] = multipletests(stats['pval'], method='bonferroni')[1] 
+
+        return stats
 
       
 
