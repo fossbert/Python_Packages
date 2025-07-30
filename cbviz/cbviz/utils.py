@@ -2,13 +2,20 @@ from unicodedata import name
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+
+# matplotlib imports
 from matplotlib import colors
+from matplotlib.scale import FuncScale
 
 # type checking
 from pandas.api.types import infer_dtype, CategoricalDtype, is_integer_dtype
 from itertools import product
 # as usual
 from collections import namedtuple
+
+
+# survival data functionality
+from sksurv.util import Surv
 
 """Functions and classes used by most other modules"""
 
@@ -20,32 +27,45 @@ class DataNum:
 
     def __init__(self, data:pd.DataFrame, ncols: int = None) -> None:
         
+        self.nans_removed = 0
         self._check_df(data)
         data = data.apply(series_cleaner)
         self.ncols = ncols if ncols else len(data.columns)
         # integer columns get converted without telling anyone
-        self._check_dtypes(data, self.ncols) 
-        self.df = data.copy()
+        self._check_dtypes(data, *['floating']*self.ncols) 
+        self.df = self._check_for_nan(data.copy())
         self.var_names = self.df.columns.to_list()
-        self.nans = (len(self.df) - self.df.count()).sum()
 
     def __repr__(self) -> str:
-        return (f"DataNum(Observations: {len(self.df)}, Features: {len(self.var_names)}, Total NaN: {self.nans})")
+        return (f"DataNum(Observations: {len(self.df)}, Features: {len(self.var_names)}, NaN removed: {self.nans_removed})")
     
     def _check_df(self, data):
         if not isinstance(data, pd.DataFrame):
             raise ValueError(f'Data needs to be supplied in pandas DataFrame, got: {type(data)}')
 
-    def _check_dtypes(self, data, ncols):
+    def _check_dtypes(self, data, *dtypes, return_dtypes:bool=False):
         
-        expected = np.repeat('floating', ncols)
+        allowed = _generate_dtype_options(*dtypes)
         observed = data.apply(infer_dtype).values
+
+        if not any(len(arr)==len(observed) for arr in allowed):
+            raise ValueError(f"Number of supplied columns does not match expections of {', '.join(dtypes)}")
         
-        if len(expected) != len(observed):
-            raise ValueError(f'Number of columns expected: {len(expected)}, got: {len(observed)}')
+        if not any([all(arr == observed) for arr in allowed]):
+            raise TypeError(f"Could not verify data types for this class, need {', '.join(dtypes)}")
         
-        if not all(expected == observed):
-            raise TypeError(f"Expected {len(expected)} float columns, got {np.sum(observed=='floating')}")
+        if return_dtypes:
+            return observed
+        
+    def _check_for_nan(self, data):
+
+        nans = (len(data) - data.count()).sum()
+        if nans>0:
+            self.nans_removed = nans
+            print(f"Found {nans} missing values, removing them.")
+            return data.dropna(axis=0)
+        else:
+            return data
 
 
 
@@ -57,37 +77,23 @@ class DataMix(DataNum):
     def __init__(self, data:pd.DataFrame, ncat: int = 1, minsize:int = 5) -> None:
         
         super()._check_df(data)
+        self.nans_removed = 0
         data = data.apply(series_cleaner)
         self.ncat = ncat
-        self.dtypes = self._check_dtypes(data, self.ncat)
-        self.df = data.copy()
+        self.dtypes = super()._check_dtypes(data, 'floating', *['string|categorical']*self.ncat, return_dtypes=True)
+        self.df = super()._check_for_nan(data.copy())
         self.var_names = self.df.columns.to_list()
-        self.nans = (len(self.df) - self.df.count()).sum()
         self.minsize = self._check_minsize(minsize)
 
     def __repr__(self) -> str:
         
         return (f"DataNum(Obs total: {len(self.df)}, " 
-                f"Features: {len(self.var_names)}, Total NaN: {self.nans}, "
+                f"Features: {len(self.var_names)}, NaN removed: {self.nans_removed}, "
                 f"Obs in smallest subgroup: {self.minsize})")
  
-    def _check_dtypes(self, data, ncat):
-        
-        expected_list = [(x, *y) for x in ['floating'] for y in list(product(['string', 'categorical'], repeat=ncat))]
-        observed = data.apply(infer_dtype).values
-        
-        if ncat+1 != len(observed):
-            raise ValueError(f'Number of columns expected: {ncat+1}, got: {len(observed)}')
-        
-        if not any([all(np.array(exp) == observed) for exp in expected_list]):
-            raise TypeError(f"Could not verify data types, need: floating then {ncat} * string|categorical")
-
-        return observed
-
-
     def _check_minsize(self, minsize: int):
 
-        minsize_observed = self.df.groupby(self.var_names[1:]).count().values.ravel().min()
+        minsize_observed = self.df.groupby(self.var_names[1:], observed=True).count().values.ravel().min()
         if  minsize_observed < minsize:
             raise AssertionError(f"Need at least {minsize} observations per subgroup, found minimum of {minsize_observed }!")
 
@@ -100,12 +106,13 @@ class DataDot(DataNum):
     def __init__(self, data: pd.DataFrame, x:str, y:str, size:str, color:str=None) -> None:
 
         super()._check_df(data)
+        self.nans_removed = 0
         data = data.apply(series_cleaner)
         self.var_names = Vars(x, y, size, color)
         self.n_numeric = 2 if color else 1
         self._check_var_names(self.var_names, data)
-        self.dtypes = self._check_dtypes(data, self.n_numeric)
-        self.df = data[[var for var in self.var_names if var]].copy().apply(series_cleaner) # Messy! 
+        self.dtypes = super()._check_dtypes(data, "string|categorical", "string|categorical", *['floating']*self.n_numeric, return_dtypes=True)
+        self.df = super()._check_for_nan(data[[var for var in self.var_names if var]].copy()) # Messy! 
         self.ncols, self.nrows, *_ = self.df.nunique()
 
     def __repr__(self) -> str:
@@ -118,28 +125,40 @@ class DataDot(DataNum):
         
         if not all([var in data.columns for var in vars if var]):
             raise KeyError(f'Could not find all provided keys ({", ".join(vars)}) in DataFrame')
-        
-
-    def _check_dtypes(self, data, n_numeric):
-
-        expected_list = [(*x, *y) for x in  list(product(['string', 'categorical'], repeat=2)) for y in list(product(['integer', 'floating'], repeat=n_numeric))]
-        observed = data.apply(infer_dtype).values
-        
-        if n_numeric+2 != len(observed):
-            raise ValueError(f'Number of columns expected: {n_numeric+2}, got: {len(observed)}')
-        
-        if not any([all(np.array(exp) == observed) for exp in expected_list]):
-            raise TypeError(f"Could not verify data types, need: 2*string|categorical, then {n_numeric}*integer|floating")
-
-        return observed
-
-      
 
 
+class DataSurv(DataNum):
+
+    def __init__(self, data: pd.DataFrame, ncat: int = 1) -> None:
+
+        super()._check_df(data)
+        self.nans_removed = 0
+        data = data.apply(series_cleaner)
+        self.ncat = ncat
+        self.dtypes = super()._check_dtypes(data, 'floating', 'floating', *['string|categorical']*self.ncat, return_dtypes=True)
+        self.df = super()._check_for_nan(data.copy())
+        self.time, self.event, *self.groups = self.df.columns.to_list()
+        self._check_event(self.df[self.event])
+        self.surv = Surv.from_dataframe(self.event, self.time, self.df)
+
+    def __repr__(self) -> str:
+        return (
+                f"DataSurv(Obs total: {len(self.df)}, NaN removed: {self.nans_removed},\n" 
+                f"Time column: {self.time}, event column: {self.event},\n"
+                f"Annotating feature(s): {' '.join([f'{i}. {g}' for i, g in enumerate(self.groups, 1)])})"
+                )
+    
+    def _check_event(self, s:pd.Series):
+
+        if not s.isin([0, 1]).all() and not (s == 0).all() and not (s == 1).all():
+
+            raise ValueError("Event column not suitable, please double check!")
 
 
 
-### Helper functions from here on
+#################################################################
+############## Helper functions from here on ####################
+#################################################################
 
 Vars = namedtuple('Vars', 'x y size color')
 
@@ -185,8 +204,6 @@ def _color_light_or_dark(rgba_in:np.ndarray)-> str:
         # dark color, return white for text
         return 'w'
     
-
-    
 def categorical_cmap(nc, nsc, cmap="tab10", continuous=False):
     """
     Also see https://stackoverflow.com/questions/47222585/matplotlib-generic-colormap-from-tab10
@@ -208,3 +225,34 @@ def categorical_cmap(nc, nsc, cmap="tab10", continuous=False):
         cols[i*nsc:(i+1)*nsc,:] = rgb       
     #cmap = colors.ListedColormap(cols)
     return cols
+
+
+def _generate_dtype_options(*dtypes):
+    
+    """Helper function that generates a list of acceptable data types (also lists) based on a variable number and order of input data types"""
+
+    out = []
+
+    for i, dt in enumerate(dtypes):
+
+        if i==0:
+            if '|' in dt:
+                    for opt in [['string'], ['categorical']]:
+                        out.append(opt)
+            else:
+                out.append([dt])
+        else:
+            cp_list = out[:] # Create a copy of list
+
+            for e in cp_list:
+                if '|' in dt:
+                    for opt in [['string'], ['categorical']]:
+                        out.append(e + opt)
+                    out.remove(e)
+                else:                        
+                    out.append(e + [dt])
+                    out.remove(e)
+
+    out = [np.array(e) for e in out] # convert to arrays
+
+    return out

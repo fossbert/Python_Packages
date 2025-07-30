@@ -25,11 +25,9 @@ import scikit_posthocs as sp
 from typing import Union, Sequence
 
 
-
-
 class StripBox:
 
-    """[Class to hold and process numeric data across one categorical variable holding at least two ]
+    """[Class to hold and process numeric data across one categorical variable holding at least two]
     """
     
     def __init__(self, 
@@ -341,8 +339,7 @@ class SplitStripBox:
             self.strip_colors = [to_hex(color) for color in np.tile(grey_colors, (self.n_s1, 1))]
             
        # Once we made it past all these checks, we can start with some calculations   
-        self.s1_ticks, self.xtick_pos = self._get_xgrid()
-        # self.strip_data = 
+        self.s1_ticks, self.xtick_pos = self._get_xgrid() 
         self.strip_data = _add_strip_data(self.data.df, 
                                           self.ylabel, 
                                           self.xtick_pos,
@@ -355,7 +352,7 @@ class SplitStripBox:
             
     def __repr__(self) -> str:
         return (
-            f"SplitStripBox(Numeric variable: {self.ylabel}\n "
+            f"SplitStripBox(Numeric variable: {self.ylabel}\n"
             f"Split 1: {self.s1}, levels: {len(self.s1_categories)}\n"
             f"Split 2: {self.s2}, levels: {len(self.s2_categories)}\n "
             f"Total data points: {len(self.data.df)})"
@@ -560,7 +557,7 @@ class PairedStripBox:
 
             pair_names.append((self.data.var_names[i], self.data.var_names[j]))
 
-            pvals.append(wilcoxon(self.Y.T[i], self.Y.T[j])[1])
+            pvals.append(wilcoxon(self.Y.T[i], self.Y.T[j], zero_method="zsplit")[1])
 
             pair_xpos.append((i, j))
 
@@ -576,15 +573,13 @@ class PairedStripBox:
       
 
 
-
-
 ### Helper functions
 
 def _get_bp_arrays(data: pd.DataFrame, value_var:str, *categories):
     
     categories = list(categories)
 
-    return data.groupby(categories).apply(lambda x: x[value_var].values).values
+    return data.groupby(categories, observed=False).apply(lambda x: x[value_var].values).values
 
 
 def _add_strip_data(data:pd.DataFrame, value_var:str, xpos:list, jitter:float, colors:list, *categories):
@@ -594,7 +589,7 @@ def _add_strip_data(data:pd.DataFrame, value_var:str, xpos:list, jitter:float, c
         if len(categories)==1:
             categories = categories.pop()
 
-        grouped_df = data.groupby(categories)
+        grouped_df = data.groupby(categories, observed=False)
 
         res = []
         

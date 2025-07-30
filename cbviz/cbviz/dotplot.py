@@ -83,7 +83,8 @@ class Dotplot:
                  reverse: bool = False,
                  bins:tuple=None, 
                  sizes_out:tuple=None, 
-                 transform:callable=None):
+                 transform:callable=None,
+                 verbose:bool=False):
         
         sizes_raw = self.size_raw
 
@@ -105,8 +106,9 @@ class Dotplot:
         self.size_cut = pd.cut(sizes_raw, bins, include_lowest=True, labels=sizes_out, ordered=False) # allow duplicate values
         self.bins = [(bin, size) for bin, size in zip(bins[1:], sizes_out)]
         
-        print('Assigned sizes as follows:')
-        [print(f'{bin:.2e} -> size {size}') for bin, size in self.bins]
+        if verbose:
+            print('Assigned sizes as follows:')
+            [print(f'{bin:.2e} -> size {size}') for bin, size in self.bins]
 
 
     def adjust_ax_lims(self, offset:float=0.5, ax=None):
