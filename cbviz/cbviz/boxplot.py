@@ -26,8 +26,66 @@ from typing import Union, Sequence
 
 
 class StripBox:
+    """
+    A class to hold and process numeric data across one categorical variable with at least two levels,
+    and provide statistical analysis and visualization tools such as boxplots, strip plots, and p-value annotations.
+    Parameters
+    ----------
+    data : pd.DataFrame
+        Input DataFrame containing the numeric variable and one categorical variable.
+    jitter : float, optional
+        Amount of jitter to apply to strip plot points (default is 0.08).
+    p_method_global : str, optional
+        Method for calculating the global p-value. Options are 'Kruskal' or 'Anova' (default is 'Kruskal').
+    s1_order : list, optional
+        Custom order for the categorical variable levels. Must match existing categories.
+    s1_colors : tuple, optional
+        Colors for each category. Must match the number of categories.
+    Attributes
+    ----------
+    data : DataMix
+        Internal data wrapper for input DataFrame.
+    ylabel : str
+        Name of the numeric variable.
+    s1 : str
+        Name of the categorical variable.
+    s1_dtype : str
+        Data type of the categorical variable.
+    jitter : float
+        Jitter value for strip plot.
+    s1_categories : list
+        List of category levels.
+    s1_colors : list
+        List of colors for each category.
+    p_method_global : str
+        Method used for global p-value calculation.
+    global_p : float
+        Calculated global p-value.
+    strip_data : pd.DataFrame
+        Data prepared for strip plot visualization.
+    pairwise_stats : pd.DataFrame
+        DataFrame containing pairwise statistical test results (set after calling `calc_pairwise_p`).
+    Methods
+    -------
+    __repr__():
+        String representation of the StripBox instance.
+    _calc_global_p(method):
+        Calculate the global p-value using the specified method.
+    calc_pairwise_p(posthoc_method='dunn'):
+        Calculate pairwise p-values between groups using posthoc tests ('dunn' or 'tukey').
+    boxplt(ax=None, adjust_x=False, **boxplot_kwargs):
+        Plot a boxplot of the numeric variable split by the categorical variable.
+    add_strips(ax=None, **scatter_kwargs):
+        Add strip plot points to the current axes.
+    add_global_p(ax=None, **legend_kwargs):
+        Add the global p-value as a legend to the plot.
+    add_pair_p(groupA, groupB, yoffset=0.2, connect_top=True, cut_p=False, ax=None, line_kwargs=None, **text_kwargs):
+        Annotate the plot with pairwise p-value between two groups.
+    Raises
+    ------
+    ValueError
+        If input data does not meet requirements, or if provided category order/colors do not match available categories.
 
-    """[Class to hold and process numeric data across one categorical variable holding at least two]
     """
     
     def __init__(self, 
@@ -88,6 +146,26 @@ class StripBox:
         )      
         
     def _calc_global_p(self, method:str):
+        """
+        Calculates the global p-value for comparing groups in the dataset using the specified statistical method.
+        Parameters
+        ----------
+        method : str
+            The statistical test to use for global comparison. Must be one of 'Kruskal' or 'Anova'.
+        Returns
+        -------
+        float
+            The computed global p-value. Returns np.nan if only one group is present.
+        Raises
+        ------
+        ValueError
+            If an invalid method is provided.
+        Notes
+        -----
+        - For two groups: uses Mann-Whitney U test ('Kruskal') or Welch's t-test ('Anova').
+        - For more than two groups: uses Kruskal-Wallis test ('Kruskal') or one-way ANOVA ('Anova').
+        - If only one group is present, no p-value is calculated.
+        """
         
         options = ['Kruskal', 'Anova']
         
@@ -110,6 +188,22 @@ class StripBox:
         return pval
     
     def calc_pairwise_p(self, posthoc_method:str='dunn'):
+        """
+        Calculates pairwise posthoc p-values between groups for boxplot visualization.
+        Parameters
+        ----------
+        posthoc_method : str, optional
+            Method for posthoc pairwise comparison. Supported options are 'dunn' (default) and 'tukey'.
+        Raises
+        ------
+        ValueError
+            If less than 3 groups are present or if an invalid posthoc method is specified.
+        Updates
+        -------
+        self.pairwise_stats : pd.DataFrame
+            DataFrame containing pairwise group comparisons, including x positions, min/max values, and adjusted p-values.
+        """
+
         
         bp_arrays = _get_bp_arrays(self.data.df, self.ylabel, self.s1)
         
@@ -149,6 +243,20 @@ class StripBox:
         
     
     def boxplt(self, ax=None, adjust_x=False, **boxplot_kwargs):
+        """
+        Plots a boxplot for the data contained in the object.
+        Parameters
+        ----------
+        ax : matplotlib.axes.Axes, optional
+            The axes on which to plot the boxplot. If None, uses current axes.
+        adjust_x : bool, default False
+            If True, adjusts the x-tick labels for better readability.
+        **boxplot_kwargs
+            Additional keyword arguments passed to `ax.boxplot`.
+        Returns
+        -------
+        None
+        """
         
         if ax is None:
             ax = plt.gca()
@@ -165,6 +273,18 @@ class StripBox:
         ax.set_xticks(np.arange(len(self.s1_categories))+1, self.s1_categories, **x_tick_props)
         
     def add_strips(self, ax=None, **scatter_kwargs):
+        """
+        Adds strip (scatter) plot to the given axes using the data in `self.strip_data`.
+        Parameters
+        ----------
+        ax : matplotlib.axes.Axes, optional
+            The axes to plot on. If None, uses current axes.
+        **scatter_kwargs
+            Additional keyword arguments passed to `ax.scatter`.
+        Returns
+        -------
+        None
+        """
         
         if ax is None:
             ax = plt.gca()
@@ -178,6 +298,19 @@ class StripBox:
         ax.scatter(**scatter_call)
         
     def add_global_p(self, ax=None, **legend_kwargs):
+        """
+        Adds a legend to the given axis displaying the global p-value.
+        Parameters
+        ----------
+        ax : matplotlib.axes.Axes, optional
+            The axis to which the legend will be added. If None, uses current axis.
+        **legend_kwargs : dict
+            Additional keyword arguments passed to `ax.legend()`.
+        Returns
+        -------
+        ax : matplotlib.axes.Axes
+            The axis with the added legend.
+        """
         
         if ax is None:
             ax = plt.gca()
@@ -202,6 +335,34 @@ class StripBox:
                    cut_p:bool=False, 
                    ax=None,line_kwargs:dict=None, **text_kwargs):
         
+        """
+        Adds a pairwise p-value annotation between two groups on a boxplot.
+        Parameters
+        ----------
+        groupA : str
+            Name of the first group.
+        groupB : str
+            Name of the second group.
+        yoffset : float, optional
+            Vertical offset for the annotation line and text (default: 0.2).
+        connect_top : bool, optional
+            If True, connects annotation line to the top of the boxes; otherwise to the bottom (default: True).
+        cut_p : bool, optional
+            If True, formats p-value using _cut_p; otherwise uses scientific notation (default: False).
+        ax : matplotlib.axes.Axes, optional
+            Axes object to plot on. If None, uses current axes.
+        line_kwargs : dict, optional
+            Additional keyword arguments for the annotation line.
+        **text_kwargs
+            Additional keyword arguments for the annotation text.
+        Raises
+        ------
+        AttributeError
+            If the pairwise statistics DataFrame is not found.
+        KeyError
+            If groupA and/or groupB are not present in the statistics DataFrame.
+        """
+
         if ax is None:
             ax = plt.gca()
         
@@ -241,42 +402,79 @@ class StripBox:
 
 
 class SplitStripBox:
-       
-    """Container for producing a box- and strip plots where the x-axis is split by two levels, i.e. 
-    an outer and an inner level.
-    
+    """
+    A class for creating split boxplots with overlaid strip plots for two categorical variables.
+    This class organizes data into two categorical splits and visualizes the numeric variable
+    using boxplots and strip plots, with customizable spacing, jitter, and colors.
+
     Parameters
     ----------
-    data : pandas DataFrame
-        DataFrame holding information on one numeric and two categorical/string variables.
-    
-    minsize : int
-        Minimal number of samples per subgroup, defaults to 3.
-    
-    jitter : float
-        Amount of noise to add to dots in strip chart, defaults to 0.08
-        
+    data : pd.DataFrame
+        Input dataframe containing one numeric variable and two categorical variables.
+    minsize : int, default=3
+        Minimum number of data points required per group.
+    jitter : float, default=0.08
+        Amount of horizontal jitter applied to strip points.
+    bp_width : float, default=0.5
+        Width of each boxplot.
+    space_within : float, default=0.1
+        Space between boxplots within the same split.
+    space_between : float, default=0.5
+        Space between groups of boxplots (between split 1 levels).
+    s1_order : list, optional
+        Custom order for the first split's categorical levels.
+    s2_order : list, optional
+        Custom order for the second split's categorical levels.
+    strip_colors : list, optional
+        List of colors for strip points corresponding to split 2 levels.
+    Attributes
+    ----------
+    data : DataMix
+        Processed data object with categorical splits.
+    ylabel : str
+        Name of the numeric variable.
+    s1 : str
+        Name of the first categorical split variable.
+    s2 : str
+        Name of the second categorical split variable.
+    s1_categories : list
+        Ordered levels for split 1.
+    s2_categories : list
+        Ordered levels for split 2.
     bp_width : float
-        Width of boxplots, important for x-position calculation, defaults to 0.5
-    
+        Width of each boxplot.
     space_within : float
-        Space between individual boxplots of an s1 group, defaults to 0.1
+        Space between boxplots within a split.
+    space_between : float
+        Space between split 1 groups.
+    jitter : float
+        Jitter for strip points.
+    strip_colors : list
+        Colors for strip points.
+    n_s1 : int
+        Number of split 1 levels.
+    n_s2 : int
+        Number of split 2 levels.
+    s1_ticks : TickInfo
+        Tick information for split 1.
+    xtick_pos : list
+        Positions for all boxplots.
+    strip_data : pd.DataFrame
+        Data for strip plot points.
+    handles : list
+        Legend handles for strip colors.
+    Methods
+    -------
+    __repr__():
+        String representation of the SplitStripBox object.
+    _get_xgrid():
+        Computes grid positions for boxplots and tick labels.
+    boxplt(ax=None, adjust_x=False, **boxplot_kwargs):
+        Plots boxplots on the given axis.
+    add_strips(ax=None, **scatter_kwargs):
+        Adds strip plot points to the given axis.
+    """   
     
-    space_between : float 
-        Space between s1 groups, defaults to 0.5
-        
-    s1_order: list 
-        Option to reorder levels of outer split s1
-    
-    s2_order: list
-        Option to reorder levels of inner split s2
-    
-    strip_colors: list 
-        Option to provide s2 colors, i.e. for each boxplot within a s1 split. Defaults to Greys internally. 
-        Number of provided colors must match the number of levels of s2. 
-    
-    """
-
     def __init__(self, 
                  data:pd.DataFrame,     
                 minsize:int = 3,
@@ -408,21 +606,50 @@ class SplitStripBox:
 
 
 class PairedStripBox:
-       
-    """Container for producing a box- and strip plot where the the dots are connected with lines since they represent paired 
-    data.
+    """
+    PairedStripBox(data: pd.DataFrame, jitter: float = 0.08)
+    Visualizes paired data using boxplots and strip plots, with options to connect paired points and annotate statistical significance.
     
     Parameters
     ----------
-    data : pandas DataFrame
-        DataFrame holding information on one numeric and two categorical/string variables.
-
-    jitter : float 
-        Amount of jitter to add to the strip dots. Defaults to 0.08. 
+    data : pd.DataFrame
+        Input dataframe containing paired numerical data. Each column represents a group/variable.
+    jitter : float, default=0.08
+        Amount of horizontal jitter applied to strip points for visualization.
     
-
+    Attributes
+    ----------
+    data : DataNum
+        Internal representation of the input data.
+    jitter : float
+        Jitter applied to strip points.
+    xtick_pos : np.ndarray
+        Positions of x-ticks for plotting.
+    xtick_names : list
+        Names of variables/groups for x-ticks.
+    Y : np.ndarray
+        Cleaned (dropna) data values.
+    X : np.ndarray
+        Jittered x-positions for strip points.
+    stat_df : pd.DataFrame
+        DataFrame containing pairwise statistical test results.
     
+    Methods
+    -------
+    __repr__() -> str
+        Returns a string representation of the object.
+    boxplt(ax=None, adjust_x=False, **boxplot_kwargs)
+        Plots boxplots for each group/variable.
+    add_strips(strip_colors=None, ax=None, **scatter_kwargs)
+        Adds strip points to the plot, colored by group.
+    connect_strips(ax=None, **line_kwargs)
+        Connects paired data points across groups.
+    add_pair_p(group_A, group_B, connect_top=True, yoffset=0.2, cut_pval=True, ax=None, line_kwargs=None, **text_kwargs)
+        Annotates the plot with pairwise p-values between two groups.
+    _calc_pvals()
+        Calculates pairwise p-values using Wilcoxon Signed Rank test, with Bonferroni correction for multiple comparisons.
     """
+    
 
     def __init__(self, 
                  data:pd.DataFrame,     
@@ -464,7 +691,6 @@ class PairedStripBox:
         ax.set_xticks(self.xtick_pos, self.xtick_names, **x_tick_props)
 
     def add_strips(self, strip_colors:Sequence=None, ax=None, **scatter_kwargs):
-        
 
         if strip_colors is None: 
             strip_colors = [to_hex(hue) for hue in plt.get_cmap('Blues')(np.linspace(0.5, 1, self.data.ncols))]
@@ -508,7 +734,35 @@ class PairedStripBox:
                    ax=None,
                    line_kwargs:dict = None,
                    **text_kwargs):
-
+        """
+        Annotates a boxplot with a p-value between two groups by drawing a connecting line and displaying the p-value.
+        Parameters
+        ----------
+        group_A : str
+            The name of the first group to compare.
+        group_B : str
+            The name of the second group to compare.
+        connect_top : bool, optional
+            If True, connects the top of the boxes; otherwise, connects the bottom. Default is True.
+        yoffset : float, optional
+            Vertical offset for the connecting line. Default is 0.2.
+        cut_pval : bool, optional
+            If True, formats the p-value using a custom function; otherwise, displays the raw p-value. Default is True.
+        ax : matplotlib.axes.Axes, optional
+            The axes on which to plot. If None, uses the current axes.
+        line_kwargs : dict, optional
+            Additional keyword arguments for customizing the connecting line.
+        **text_kwargs
+            Additional keyword arguments for customizing the p-value text annotation.
+        Returns
+        -------
+        None
+            This function modifies the plot in-place and does not return anything.
+        Notes
+        -----
+        - Uses `self.stat_df` for statistical results and `self.Y` for boxplot data.
+        - The function assumes that the statistical results and boxplot data are properly formatted.
+        """
 
         line_props = {'lw':0.5, 'c':'0.15'}
 
@@ -546,8 +800,21 @@ class PairedStripBox:
 
 
     def _calc_pvals(self):
+        """
+        Calculates pairwise Wilcoxon signed-rank test p-values between all columns in the dataset.
+        For each unique pair of columns, computes the Wilcoxon test and stores the p-value,
+        the variable names, and their positions. If three or more pairs are tested, applies
+        Bonferroni correction for multiple hypothesis testing.
+        
+        Returns
+        -------
+        stats : pandas.DataFrame
+            DataFrame containing pairwise positions ('xpos'), raw p-values ('pval'), and
+            Bonferroni-adjusted p-values ('fwer', if applicable). The index consists of
+            tuples of variable names for each pair.
+        """
 
-        """Calculates pairwise p-values treating values as PAIRED. Default method is Wilcoxon Signed Rank test."""
+        
 
         pair_names = []
         pvals = []

@@ -8,7 +8,7 @@ from matplotlib import colors
 from matplotlib.scale import FuncScale
 
 # type checking
-from pandas.api.types import infer_dtype, CategoricalDtype, is_integer_dtype
+from pandas.api.types import infer_dtype, CategoricalDtype, is_integer_dtype, is_bool_dtype
 from itertools import product
 # as usual
 from collections import namedtuple
@@ -21,8 +21,32 @@ from sksurv.util import Surv
 
 
 class DataNum:
-
-    """[Most classes use a pandas DataFrame providing numeric and possibly categorical order and data type.]
+    """
+    DataNum is a utility class for handling and validating numerical data in pandas DataFrames.
+    This class ensures that the input data is a pandas DataFrame, cleans each column using a
+    provided `series_cleaner` function, checks for the expected number and type of columns,
+    and removes any rows containing NaN values. It tracks the number of NaN values removed
+    and provides a summary representation of the dataset.
+    Attributes
+    ----------
+    nans_removed : int
+        Number of NaN values removed from the DataFrame.
+    ncols : int
+        Number of columns expected in the DataFrame.
+    df : pd.DataFrame
+        The cleaned DataFrame with only valid numerical columns and no NaN values.
+    var_names : list
+        List of column names in the cleaned DataFrame.
+    Methods
+    -------
+    __repr__():
+        Returns a string summary of the DataNum instance.
+    _check_df(data):
+        Validates that the input is a pandas DataFrame.
+    _check_dtypes(data, *dtypes, return_dtypes=False):
+        Checks that the DataFrame columns match the expected data types.
+    _check_for_nan(data):
+        Removes rows with NaN values and updates the count of removed NaNs.
     """
 
     def __init__(self, data:pd.DataFrame, ncols: int = None) -> None:
@@ -71,10 +95,36 @@ class DataNum:
 
 class DataMix(DataNum):
 
-    """[This class prepares and checks DataFrames containing a numeric and one or two categorical variables]
     """
+    DataMix is a subclass of DataNum designed for handling mixed-type datasets 
+    that include both numeric and categorical/string features. It enforces data 
+    cleaning, dtype checks, and ensures that all subgroupings in the data have 
+    a minimum number of observations.
+
+    Attributes:
+        df (pd.DataFrame): Cleaned and validated DataFrame.
+        var_names (list): List of column names in the dataset.
+        dtypes (dict): Data types of each column as validated.
+        nans_removed (int): Counter for number of NaNs removed (currently unused, set to 0).
+        minsize (int): Minimum number of observations per subgroup.
+        ncat (int): Number of categorical variables expected.
+    """
+    
 
     def __init__(self, data:pd.DataFrame, ncat: int = 1, minsize:int = 5) -> None:
+        
+        """
+        Initializes the DataMix object by cleaning the input DataFrame, 
+        validating dtypes, and ensuring subgroup sizes meet the minimum threshold.
+
+        Args:
+            data (pd.DataFrame): The input dataset.
+            ncat (int, optional): Number of categorical/string features expected. Default is 1.
+            minsize (int, optional): Minimum number of observations required per subgroup. Default is 5.
+
+        Raises:
+            AssertionError: If any subgroup in the data has fewer observations than `minsize`.
+        """
         
         super()._check_df(data)
         self.nans_removed = 0
@@ -86,12 +136,31 @@ class DataMix(DataNum):
         self.minsize = self._check_minsize(minsize)
 
     def __repr__(self) -> str:
+        """
+        Returns a summary string representation of the dataset object.
+
+        Returns:
+            str: Summary of data dimensions and subgroup stats.
+        """
         
         return (f"DataNum(Obs total: {len(self.df)}, " 
                 f"Features: {len(self.var_names)}, NaN removed: {self.nans_removed}, "
                 f"Obs in smallest subgroup: {self.minsize})")
  
     def _check_minsize(self, minsize: int):
+        """
+        Checks that each subgroup (based on categorical columns) has 
+        at least `minsize` number of observations.
+
+        Args:
+            minsize (int): Minimum number of observations required per subgroup.
+
+        Returns:
+            int: The smallest number of observations among all subgroups.
+
+        Raises:
+            AssertionError: If any subgroup has fewer than `minsize` observations.
+        """
 
         minsize_observed = self.df.groupby(self.var_names[1:], observed=True).count().values.ravel().min()
         if  minsize_observed < minsize:
@@ -128,6 +197,51 @@ class DataDot(DataNum):
 
 
 class DataSurv(DataNum):
+    """
+    Handles survival analysis data with support for multiple categorical features.
+    
+    Parameters
+    ----------  
+    data : pd.DataFrame
+        Input DataFrame containing survival data. Expected columns are:
+        - time: Duration or time-to-event.
+        - event: Event indicator (boolean or binary 0/1).
+        - group(s): Additional categorical annotation features.
+    ncat : int, optional
+        Number of categorical annotation features (default is 1).
+
+    Attributes    
+    nans_removed : int
+        Number of NaN values removed during preprocessing.
+    ncat : int
+        Number of categorical annotation features.
+    dtypes : dict
+        Data types of the columns after validation.
+    df : pd.DataFrame
+        Cleaned DataFrame used for analysis.
+    time : str
+        Name of the time column.
+    event : str
+        Name of the event column.
+    groups : list of str
+        Names of the annotation feature columns.
+    surv : sksurv.util.Surv
+        Survival object constructed from the DataFrame.
+
+    Methods
+    __repr__() -> str
+        Returns a string representation of the DataSurv object, including the number of observations,
+        NaN values removed, time column, event column, and annotation features.
+    _check_event(s: pd.Series)
+        Validates and processes the event column in the DataFrame.
+        Raises ValueError if the event column contains values other than 0 or 1 when not of boolean dtype.
+        If the event column contains only 0 or 1, it is converted to boolean for compatibility with `sksurv.util.Surv`.
+ 
+    Notes
+    - The event column is validated to ensure it contains only boolean or binary (0/1) values.
+    - If the event column contains only 0 or 1, it is converted to boolean for compatibility with `sksurv.util.Surv`.
+    - The class supports multiple categorical annotation features as specified by `ncat`.
+    """
 
     def __init__(self, data: pd.DataFrame, ncat: int = 1) -> None:
 
@@ -149,10 +263,41 @@ class DataSurv(DataNum):
                 )
     
     def _check_event(self, s:pd.Series):
+        """
+        Validates and processes an event column in a pandas Series for survival analysis.
+        Parameters
+        ----------
+        s : pd.Series
+            The event column to check, expected to contain boolean or binary (0/1) values.
+        Raises
+        ------
+        ValueError
+            If the event column contains values other than 0 or 1 when not of boolean dtype.
+        Notes
+        -----
+        - If the event column is not of boolean dtype and contains only 0 or 1, it will be converted to boolean.
+        - This conversion is necessary for compatibility with `sksurv.util.Surv`, which requires a boolean event column
+            when all values are 0 or 1.
+        - A message is printed when conversion occurs.
+        """
 
-        if not s.isin([0, 1]).all() and not (s == 0).all() and not (s == 1).all():
 
-            raise ValueError("Event column not suitable, please double check!")
+        if not is_bool_dtype(s):
+
+            if not s.isin([0, 1]).all():
+          
+                raise ValueError("Event column not suitable, please double check!")
+            
+            if (s == 0).all() or (s == 1).all():
+
+                # This a bit of a quirk of the sksurv.util.Surv class, which does accept a non-boolean event column but if 
+                # all values are 0 or 1, it will not work unless we convert it to boolean.
+
+                print("Converting event column to boolean, as all values are 0 or 1.")
+                self.df[self.event] = s.astype(bool)
+
+
+
 
 
 

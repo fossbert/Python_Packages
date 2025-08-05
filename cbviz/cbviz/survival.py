@@ -233,13 +233,22 @@ class KME:
             self._label_quantile(x, self._intersect_km_curve(y, q), f"{np.quantile(surv[self.data.time], 1-q):.0f}", q, label_offset, ax)
     
     def _pivot_logrank(self):
+
         """
-        Pivot the pairwise logrank results into a DataFrame format for easier visualization.
+        Pivot the pairwise logrank test results into a DataFrame for visualization and further analysis.
         
         Returns
         -------
-        pd.DataFrame
-            A DataFrame with categories as rows and columns, containing p-values from pairwise logrank tests.
+        tuple
+            A tuple containing:
+            - pd.DataFrame: Pivoted DataFrame with categories as rows and columns, containing FDR-adjusted p-values ('fdr_bh') from pairwise logrank tests.
+            - np.ndarray: Flattened array of the pivoted p-values.
+            - np.ndarray: Flattened array of column indices corresponding to the pivoted values.
+            - np.ndarray: Flattened array of row indices corresponding to the pivoted values.
+        Raises
+        ------
+        ValueError
+            If pairwise logrank tests have not been calculated prior to calling this method.
         """
         if not hasattr(self, 'pairwise_logranks'):
             raise ValueError("Pairwise logrank tests have not been calculated. Call `calc_pairwise_logranks()` first.")

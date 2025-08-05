@@ -283,6 +283,7 @@ class XYview:
 
 
 class XYzoom(XYview):
+
     
     """A class to implement a zoom option on a particular area of a XY relationship. Inherits from XYview. 
     
